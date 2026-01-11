@@ -23,8 +23,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	mcpv1alpha1 "github.com/Kuadrant/mcp-gateway/api/v1alpha1"
 	"github.com/Kuadrant/mcp-gateway/internal/broker/upstream"
-	mcpv1alpha1 "github.com/Kuadrant/mcp-gateway/pkg/apis/mcp/v1alpha1"
 	"github.com/Kuadrant/mcp-gateway/pkg/config"
 )
 

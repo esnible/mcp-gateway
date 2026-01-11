@@ -1,0 +1,29 @@
+# This rule is not used by the project mcp-gateway itself.
+# It is provided to allow the cluster admin to help manage permissions for users.
+#
+# Grants read-only access to mcp.kagenti.com resources.
+# This role is intended for users who need visibility into these resources
+# without permissions to modify them. It is ideal for monitoring purposes and limited-access viewing.
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: mcp-gateway
+    app.kubernetes.io/managed-by: kustomize
+  name: mcpgatewayextension-viewer-role
+rules:
+- apiGroups:
+  - mcp.kagenti.com
+  resources:
+  - mcpgatewayextensions
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - mcp.kagenti.com
+  resources:
+  - mcpgatewayextensions/status
+  verbs:
+  - get

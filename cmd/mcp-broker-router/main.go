@@ -14,12 +14,12 @@ import (
 	"sync"
 	"time"
 
+	mcpv1alpha1 "github.com/Kuadrant/mcp-gateway/api/v1alpha1"
 	"github.com/Kuadrant/mcp-gateway/internal/broker"
 	"github.com/Kuadrant/mcp-gateway/internal/clients"
 	config "github.com/Kuadrant/mcp-gateway/internal/config"
 	mcpRouter "github.com/Kuadrant/mcp-gateway/internal/mcp-router"
 	"github.com/Kuadrant/mcp-gateway/internal/session"
-	mcpv1alpha1 "github.com/Kuadrant/mcp-gateway/pkg/apis/mcp/v1alpha1"
 	"github.com/Kuadrant/mcp-gateway/pkg/controller"
 	goenv "github.com/caitlinelfring/go-env-default"
 	extProcV3 "github.com/envoyproxy/go-control-plane/envoy/service/ext_proc/v3"

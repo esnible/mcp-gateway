@@ -11,12 +11,6 @@ We can't wait to collaborate with you!
 Please feel free to report an issue for bugs, and any other problems you
 encounter with the MCP Gateway project.
 
-If you have something to propose (e.g. a big new feature) we recommend
-starting that out as a [discussion] first, to talk it through and build
-consensus ahead of time.
-
-[discussion]:https://github.com/kuadrant/mcp-gateway/discussions
-
 ### Process
 
 We have some light process around issue management that contributors should

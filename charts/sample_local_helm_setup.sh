@@ -6,7 +6,7 @@
 set -e
 
 # Allow specifying a different GitHub org/user and branch via environment variables
-GITHUB_ORG=${MCP_GATEWAY_ORG:-kagenti}
+GITHUB_ORG=${MCP_GATEWAY_ORG:-Kuadrant}
 BRANCH=${MCP_GATEWAY_BRANCH:-main}
 USE_LOCAL_CHART=${USE_LOCAL_CHART:-false}
 echo "Using GitHub org: $GITHUB_ORG"

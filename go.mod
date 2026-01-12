@@ -1,4 +1,4 @@
-module github.com/kagenti/mcp-gateway
+module github.com/Kuadrant/mcp-gateway
 
 go 1.25.5
 
@@ -55,6 +55,7 @@ require (
 	github.com/invopop/jsonschema v0.13.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
+	github.com/kagenti/mcp-gateway v0.4.1 // indirect
 	github.com/mailru/easyjson v0.9.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.3-0.20250322232337-35a7c28c31ee // indirect

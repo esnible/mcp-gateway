@@ -1,4 +1,4 @@
-module github.com/kagenti/mcp-gateway/tests/servers/api-key-server
+module github.com/Kuadrant/mcp-gateway/tests/servers/api-key-server
 
 go 1.25.5
 

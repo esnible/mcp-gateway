@@ -8,7 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/kagenti/mcp-gateway/internal/tests/server2"
+	"github.com/Kuadrant/mcp-gateway/internal/tests/server2"
 )
 
 func main() {

@@ -88,4 +88,4 @@
   # Controller logs  
   kubectl logs -n {{ .Release.Namespace }} deployment/{{ include "mcp-gateway.fullname" . }}-controller
 
-For more information, visit: https://github.com/kagenti/mcp-gateway
+For more information, visit: https://github.com/Kuadrant/mcp-gateway

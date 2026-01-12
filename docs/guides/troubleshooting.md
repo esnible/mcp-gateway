@@ -40,7 +40,7 @@ kubectl get deployment -n mcp-system
 
 **Solutions**:
 - Install Gateway API CRDs first: `kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.2.1/standard-install.yaml`
-- Delete existing resources if upgrading: `kubectl delete -k 'https://github.com/kagenti/mcp-gateway/config/install?ref=main'`
+- Delete existing resources if upgrading: `kubectl delete -k 'https://github.com/Kuadrant/mcp-gateway/config/install?ref=main'`
 
 ### Pods Not Starting
 
@@ -503,7 +503,7 @@ If you continue to experience issues:
    kubectl describe httproute -A > httproute-status.txt
    ```
 
-3. Open an issue at https://github.com/kagenti/mcp-gateway/issues with:
+3. Open an issue at https://github.com/Kuadrant/mcp-gateway/issues with:
    - Description of the problem
    - Steps to reproduce
    - Relevant logs and resource configurations

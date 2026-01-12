@@ -12,9 +12,9 @@ import (
 	"os"
 	"testing"
 
+	"github.com/Kuadrant/mcp-gateway/internal/config"
+	"github.com/Kuadrant/mcp-gateway/internal/session"
 	eppb "github.com/envoyproxy/go-control-plane/envoy/service/ext_proc/v3"
-	"github.com/kagenti/mcp-gateway/internal/config"
-	"github.com/kagenti/mcp-gateway/internal/session"
 	"github.com/mark3labs/mcp-go/client"
 	"github.com/stretchr/testify/require"
 )

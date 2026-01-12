@@ -10,8 +10,8 @@ import (
 	"net/http"
 	"slices"
 
+	"github.com/Kuadrant/mcp-gateway/internal/broker/upstream"
 	jwt "github.com/golang-jwt/jwt/v5"
-	"github.com/kagenti/mcp-gateway/internal/broker/upstream"
 	"github.com/mark3labs/mcp-go/mcp"
 )
 

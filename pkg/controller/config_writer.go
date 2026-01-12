@@ -16,7 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
-	"github.com/kagenti/mcp-gateway/pkg/config"
+	"github.com/Kuadrant/mcp-gateway/pkg/config"
 )
 
 // ConfigMapWriter writes ConfigMaps

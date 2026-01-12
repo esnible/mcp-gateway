@@ -60,7 +60,7 @@ This automatically installs:
 Install using Kubernetes manifests:
 
 ```bash
-kubectl apply -k 'https://github.com/kagenti/mcp-gateway/config/install?ref=main'
+kubectl apply -k 'https://github.com/Kuadrant/mcp-gateway/config/install?ref=main'
 ```
 
 This provides the same components as Helm but with less configuration flexibility.

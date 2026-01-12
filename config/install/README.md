@@ -35,13 +35,13 @@ This directory provides a minimal installation of MCP Gateway with just the core
 ### From GitHub (recommended)
 
 ```bash
-kubectl apply -k 'https://github.com/kagenti/mcp-gateway/config/install?ref=main'
+kubectl apply -k 'https://github.com/Kuadrant/mcp-gateway/config/install?ref=main'
 ```
 
 or a specific version tag:
 
 ```bash
-kubectl apply -k 'https://github.com/kagenti/mcp-gateway/config/install?ref=v0.1.0'
+kubectl apply -k 'https://github.com/Kuadrant/mcp-gateway/config/install?ref=v0.1.0'
 ```
 
 **Note:** quotes are required in zsh to prevent globbing on the `?` character
@@ -49,7 +49,7 @@ kubectl apply -k 'https://github.com/kagenti/mcp-gateway/config/install?ref=v0.1
 ### Local Development
 
 ```bash
-git clone https://github.com/kagenti/mcp-gateway
+git clone https://github.com/Kuadrant/mcp-gateway
 cd mcp-gateway
 kubectl apply -k config/install
 ```
@@ -112,5 +112,5 @@ spec:
 ## Uninstall
 
 ```bash
-kubectl delete -k 'https://github.com/kagenti/mcp-gateway/config/install?ref=main'
+kubectl delete -k 'https://github.com/Kuadrant/mcp-gateway/config/install?ref=main'
 ```

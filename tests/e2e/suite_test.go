@@ -24,8 +24,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
-	"github.com/kagenti/mcp-gateway/pkg/apis/mcp/v1alpha1"
-	mcpv1alpha1 "github.com/kagenti/mcp-gateway/pkg/apis/mcp/v1alpha1"
+	"github.com/Kuadrant/mcp-gateway/pkg/apis/mcp/v1alpha1"
+	mcpv1alpha1 "github.com/Kuadrant/mcp-gateway/pkg/apis/mcp/v1alpha1"
 )
 
 var (

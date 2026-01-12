@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kagenti/mcp-gateway/internal/broker/upstream"
+	"github.com/Kuadrant/mcp-gateway/internal/broker/upstream"
 )
 
 // ServerValidationStatus contains the validation status of a single MCP server

@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/Kuadrant/mcp-gateway/internal/broker"
+	"github.com/Kuadrant/mcp-gateway/internal/config"
+	"github.com/Kuadrant/mcp-gateway/internal/session"
 	extProcV3 "github.com/envoyproxy/go-control-plane/envoy/service/ext_proc/v3"
-	"github.com/kagenti/mcp-gateway/internal/broker"
-	"github.com/kagenti/mcp-gateway/internal/config"
-	"github.com/kagenti/mcp-gateway/internal/session"
 	"github.com/mark3labs/mcp-go/client"
 )
 

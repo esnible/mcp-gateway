@@ -35,7 +35,7 @@ curl -sSL https://raw.githubusercontent.com/kagenti/mcp-gateway/main/charts/samp
 **Or clone the repository and run locally:**
 
 ```bash
-git clone https://github.com/kagenti/mcp-gateway.git
+git clone https://github.com/Kuadrant/mcp-gateway.git
 cd mcp-gateway
 USE_LOCAL_CHART=true ./charts/sample_local_helm_setup.sh
 ```

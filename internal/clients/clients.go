@@ -7,8 +7,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/kagenti/mcp-gateway/internal/config"
-	mcprouter "github.com/kagenti/mcp-gateway/internal/mcp-router"
+	"github.com/Kuadrant/mcp-gateway/internal/config"
+	mcprouter "github.com/Kuadrant/mcp-gateway/internal/mcp-router"
 	"github.com/mark3labs/mcp-go/client"
 	"github.com/mark3labs/mcp-go/client/transport"
 	"github.com/mark3labs/mcp-go/mcp"

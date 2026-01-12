@@ -452,6 +452,7 @@ func (r *MCPReconciler) discoverServersFromHTTPRoutes(
 
 	// handle Istio Hostname backendRef for external services
 	if kind == "Hostname" && group == "networking.istio.io" {
+		log.FromContext(ctx).V(1).Info("processing external service via Hostname backendRef", "host", backendRef.Name)
 		return r.buildServerInfoForHostnameBackend(httpRoute, mcpServer, backendRef, namespace, targetRef.Name)
 	}
 

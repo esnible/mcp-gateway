@@ -85,6 +85,13 @@ When the existing MCPServer Controller finds an MCPServer resource, it will:
 3. If no valid objects are found, update the MCPServer with a status of `NotReady` and reason `NoValidMCPGatewayExtension`. The configuration for that server will not be added to any MCP Gateway deployment.
 4. For each valid configuration found, add the MCP configuration secret to the same namespace as the MCPGatewayExtension resource (either via ReferenceGrant or by being co-located with the Gateway).
 
+
+### MCPVirtualServer
+
+This resources has a simplistic approach to limiting the tools returned to an agent. It is not considered a security feature. It is purely a tool for limiting the response to a useful set of tools. It allows specifying a set of tools that will be returned if present based on a header passed by the client. The tools may or may not actually exist in the gateway being targeted by an application. In this proposal, we will not modify the MCPVirtualServer behavior. So its configuration will be added to all MCP Gateway instances. In doing this we don't expose any sensitive information to the clients. If there are no tools that match the list.
+
+> Note The above does not preclude modifying VirtualMCP in the future to allow to specify a target gateway or  HTTPRoute.
+
 ### Deploying Multiple Broker and Router Instances
 
 In this initial phase, users will use the Helm charts to deploy the broker and router into a namespace. The Helm chart will also configure the MCPGatewayExtension, EnvoyFilter, and any required ReferenceGrants. In the future, this will also be offered by an operator.

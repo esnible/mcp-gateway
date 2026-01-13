@@ -149,7 +149,8 @@ deploy-example: install-crd ## Deploy example MCPServer resource
 	@kubectl wait --for=condition=Available deployment -n mcp-test -l app=everything-server --timeout=60s
 	@kubectl wait --for=condition=Available deployment -n mcp-test -l app=mcp-custom-response --timeout=60s
 	@echo "All test servers ready, deploying MCPServer resources..."
-	kubectl apply -f config/samples/mcpserver-test-servers.yaml
+	kubectl apply -f config/samples/mcpserver-test-servers-base.yaml
+	kubectl apply -f config/samples/mcpserver-test-servers-extended.yaml
 	@echo "Waiting for controller to process MCPServer..."
 	@sleep 3
 	@echo "Restarting broker to ensure all connections..."

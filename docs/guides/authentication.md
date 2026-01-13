@@ -27,15 +27,15 @@ Deploy Keycloak as your OAuth 2.1 authorization server:
 
 ```bash
 # Install Keycloak
-kubectl apply -f https://raw.githubusercontent.com/kagenti/mcp-gateway/main/config/keycloak/deployment.yaml
-kubectl apply -f https://raw.githubusercontent.com/kagenti/mcp-gateway/main/config/keycloak/httproute.yaml
+kubectl apply -f https://raw.githubusercontent.com/Kuadrant/mcp-gateway/main/config/keycloak/deployment.yaml
+kubectl apply -f https://raw.githubusercontent.com/Kuadrant/mcp-gateway/main/config/keycloak/httproute.yaml
 
 # Wait for Keycloak to be ready
 kubectl wait --for=condition=ready pod -l app=keycloak -n keycloak --timeout=120s
 
 # Apply CORS preflight fix for Keycloak OIDC client registration
 # This works around a known Keycloak bug: https://github.com/keycloak/keycloak/issues/39629
-kubectl apply -f https://raw.githubusercontent.com/kagenti/mcp-gateway/refs/heads/main/config/keycloak/preflight_envoyfilter.yaml
+kubectl apply -f https://raw.githubusercontent.com/Kuadrant/mcp-gateway/refs/heads/main/config/keycloak/preflight_envoyfilter.yaml
 ```
 
 Create the MCP realm and test user. This sets up a dedicated OAuth realm for MCP Gateway with proper OIDC configuration and dynamic client registration support:

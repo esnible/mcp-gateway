@@ -20,7 +20,7 @@ spec:
   source:
     helm: {}
     path: config/openshift/charts/mcp-gateway-ingress
-    repoURL: 'https://github.com/kagenti/mcp-gateway.git'
+    repoURL: 'https://github.com/Kuadrant/mcp-gateway.git'
     targetRevision: main
   syncPolicy:
     automated:

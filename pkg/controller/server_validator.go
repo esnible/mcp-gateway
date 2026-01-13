@@ -9,7 +9,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/kagenti/mcp-gateway/internal/broker"
+	"github.com/Kuadrant/mcp-gateway/internal/broker"
 	discoveryv1 "k8s.io/api/discovery/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"

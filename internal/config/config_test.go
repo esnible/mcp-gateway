@@ -5,7 +5,7 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/kagenti/mcp-gateway/internal/config"
+	"github.com/Kuadrant/mcp-gateway/internal/config"
 )
 
 func TestConfig_StripServerPrefix(t *testing.T) {

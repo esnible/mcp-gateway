@@ -24,7 +24,7 @@ spec:
   project: default
   source:
     path: config/openshift/kustomize/argocd/apps
-    repoURL: 'https://github.com/kagenti/mcp-gateway.git'
+    repoURL: 'https://github.com/Kuadrant/mcp-gateway.git'
     targetRevision: main
     kustomize:
       patches:

@@ -31,7 +31,7 @@ This method runs MCP Gateway broker and router components as standalone binaries
 
 ```bash
 # Clone the repository
-git clone https://github.com/kagenti/mcp-gateway.git
+git clone https://github.com/Kuadrant/mcp-gateway.git
 cd mcp-gateway
 
 # Build the combined broker-router binary

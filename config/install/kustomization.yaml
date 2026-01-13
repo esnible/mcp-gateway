@@ -3,7 +3,7 @@
 # brings your own: gateway API, istio/envoy gateway, authentication (optional)
 #
 # install with:
-#   kubectl apply -k https://github.com/kagenti/mcp-gateway/config/install?ref=main
+#   kubectl apply -k https://github.com/Kuadrant/mcp-gateway/config/install?ref=main
 #
 # or locally:
 #   kubectl apply -k config/install

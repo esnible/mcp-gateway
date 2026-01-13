@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kagenti/mcp-gateway/internal/broker/upstream"
-	"github.com/kagenti/mcp-gateway/internal/config"
+	"github.com/Kuadrant/mcp-gateway/internal/broker/upstream"
+	"github.com/Kuadrant/mcp-gateway/internal/config"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 )

@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kagenti/mcp-gateway/internal/config"
-	"github.com/kagenti/mcp-gateway/internal/tests/server2"
+	"github.com/Kuadrant/mcp-gateway/internal/config"
+	"github.com/Kuadrant/mcp-gateway/internal/tests/server2"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/stretchr/testify/require"
 )

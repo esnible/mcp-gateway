@@ -78,8 +78,8 @@ spec:
     key: "token"
 ```
 
-You'll find example mcp servers in https://github.com/kagenti/mcp-gateway/tree/main/config/test-servers
-along with the corresponding MCPServer resources in https://github.com/kagenti/mcp-gateway/blob/main/config/samples/mcpserver-test-servers.yaml
+You'll find example mcp servers in https://github.com/Kuadrant/mcp-gateway/tree/main/config/test-servers
+along with the corresponding MCPServer resources in https://github.com/Kuadrant/mcp-gateway/blob/main/config/samples/mcpserver-test-servers.yaml
 
 ### Accessing the Gateway
 

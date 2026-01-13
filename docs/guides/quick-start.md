@@ -29,13 +29,13 @@ Run the automated setup script:
 
 ```bash
 # Download and run the setup script
-curl -sSL https://raw.githubusercontent.com/kagenti/mcp-gateway/main/charts/sample_local_helm_setup.sh | bash
+curl -sSL https://raw.githubusercontent.com/Kuadrant/mcp-gateway/main/charts/sample_local_helm_setup.sh | bash
 ```
 
 **Or clone the repository and run locally:**
 
 ```bash
-git clone https://github.com/kagenti/mcp-gateway.git
+git clone https://github.com/Kuadrant/mcp-gateway.git
 cd mcp-gateway
 USE_LOCAL_CHART=true ./charts/sample_local_helm_setup.sh
 ```

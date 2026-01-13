@@ -1,6 +1,6 @@
 # Contributing to this project
 
-Greetings! We are grateful for your interest in joining the Kagenti community and making a positive impact. Whether you're raising issues, enhancing documentation, fixing bugs, or developing new features, your contributions are essential to our success.
+Greetings! We are grateful for your interest in joining the Kuadrant community and making a positive impact. Whether you're raising issues, enhancing documentation, fixing bugs, or developing new features, your contributions are essential to our success.
 
 To get started, kindly read through this document and familiarize yourself with our code of conduct. 
 
@@ -10,12 +10,6 @@ We can't wait to collaborate with you!
 
 Please feel free to report an issue for bugs, and any other problems you
 encounter with the MCP Gateway project.
-
-If you have something to propose (e.g. a big new feature) we recommend
-starting that out as a [discussion] first, to talk it through and build
-consensus ahead of time.
-
-[discussion]:https://github.com/kagenti/mcp-gateway/discussions
 
 ### Process
 
@@ -37,8 +31,8 @@ impact and time-sensitivity:
   high impact critical issues. Interrupts other work until it is accounted for,
   and should be used sparingly.
 
-[GitHub milestones]:https://github.com/kagenti/mcp-gateway/milestones
-[GitHub project boards]:https://github.com/orgs/kagenti/projects/6
+[GitHub milestones]:https://github.com/Kuadrant/mcp-gateway/milestones
+[GitHub project boards]:https://github.com/orgs/Kuadrant/projects/27/views/1
 
 ### Triage
 
@@ -51,12 +45,6 @@ is centered around milestones:
 2. When issues have a milestone: they are considered `triage/accepted`, and
    need a priority. The priority will default to `priority/normal`.
 
-## Contributing Code
+### Code of conduct
 
-Please follow the [Contribution guide](https://github.com/kagenti/kagenti/blob/main/CONTRIBUTING.md#contributing-to-this-project), as found in the Kagenti Repository, for instructions on how to contribute to our repositories. 
-
-### Developer's Guide
-
-Please follow our [Developer's Guide](https://github.com/kagenti/kagenti/blob/main/docs/dev-guide.md#developers-guide), as found in the Kagenti Repository, where you can find comprehensive instructions for common development operations.
-
-Please note that the section concerning pre-commit does not apply to this repository. 
+Participation in the Kuadrant community is governed by the [Kuadrant Community Code of Conduct](https://github.com/Kuadrant/governance/blob/main/CODE_OF_CONDUCT.md).

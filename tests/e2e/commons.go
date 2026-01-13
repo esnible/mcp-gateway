@@ -30,8 +30,8 @@ import (
 
 	istiov1beta1 "istio.io/api/networking/v1beta1"
 
-	"github.com/kagenti/mcp-gateway/pkg/apis/mcp/v1alpha1"
-	mcpv1alpha1 "github.com/kagenti/mcp-gateway/pkg/apis/mcp/v1alpha1"
+	"github.com/Kuadrant/mcp-gateway/pkg/apis/mcp/v1alpha1"
+	mcpv1alpha1 "github.com/Kuadrant/mcp-gateway/pkg/apis/mcp/v1alpha1"
 )
 
 const (

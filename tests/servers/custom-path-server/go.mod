@@ -1,4 +1,4 @@
-module github.com/kagenti/mcp-gateway/tests/servers/custom-path-server
+module github.com/Kuadrant/mcp-gateway/tests/servers/custom-path-server
 
 go 1.25.5
 

@@ -11,7 +11,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	mcpv1alpha1 "github.com/kagenti/mcp-gateway/api/v1alpha1"
+	mcpv1alpha1 "github.com/Kuadrant/mcp-gateway/api/v1alpha1"
 )
 
 var _ = Describe("MCPGatewayExtension Controller", func() {

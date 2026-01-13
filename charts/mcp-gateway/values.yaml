@@ -7,6 +7,12 @@ image:
   tag: latest
   pullPolicy: IfNotPresent
 
+  # Image configuration
+imageController:
+  repository: ghcr.io/kagenti/mcp-controller
+  tag: latest
+  pullPolicy: IfNotPresent
+
 # ConfigMap for MCP gateway configuration
 configMap:
   # Create a ConfigMap with default empty configuration

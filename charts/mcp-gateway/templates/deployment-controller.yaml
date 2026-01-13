@@ -21,11 +21,10 @@ spec:
       serviceAccountName: {{ include "mcp-gateway.controllerServiceAccountName" . }}
       containers:
         - name: mcp-controller
-          image: {{ include "mcp-gateway.image" . }}
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          image: {{ include "mcp-controller.image" . }}
+          imagePullPolicy: {{ .Values.imageController.pullPolicy }}
           command:
-            - ./mcp_gateway
-            - --controller
+            - ./mcp_controller
             - --log-level=0
           env:
             - name: NAMESPACE

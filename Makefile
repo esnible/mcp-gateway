@@ -22,14 +22,18 @@ WAIT_TIME ?=120s
 help: ## Display this help
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
-.PHONY: build clean mcp-broker-router
+.PHONY: build clean mcp-broker-router controller
 
 # Build the combined broker and router
 mcp-broker-router:
 	go build -o bin/mcp-broker-router ./cmd/mcp-broker-router
 
+# Build the controller
+controller:
+	go build -o bin/mcp-controller ./cmd
+
 # Build all binaries
-build: mcp-broker-router
+build: mcp-broker-router controller
 
 # Clean build artifacts
 clean:
@@ -42,9 +46,9 @@ run: mcp-broker-router
 # Run the broker and router with debug logging (alias for backwards compatibility)
 run-mcp-broker-router: run
 
-# Run in controller mode (discovers MCP servers from Kubernetes)
-run-controller: mcp-broker-router
-	./bin/mcp-broker-router --controller --log-level=${LOG_LEVEL}
+# Run the controller (discovers MCP servers from Kubernetes)
+run-controller: controller
+	./bin/mcp-controller --log-level=${LOG_LEVEL}
 
 # controller-gen version
 CONTROLLER_GEN_VERSION ?= v0.19.0
@@ -141,19 +145,24 @@ define load-image
 	   exit $${EXITVAL}
 endef
 
-.PHONY: build-and-load-image
-build-and-load-image: kind build-image load-image  ## Build & load router/broker/controller image into the Kind cluster and restart
-	@echo "Building and loading image into Kind cluster..."
+.PHONY: restart-all
+restart-all:
 	kubectl rollout restart deployment/mcp-broker-router -n mcp-system 2>/dev/null || true
 	kubectl rollout restart deployment/mcp-controller -n mcp-system 2>/dev/null || true
+
+.PHONY: build-and-load-image
+build-and-load-image: kind build-image load-image restart-all  ## Build & load router/broker/controller image into the Kind cluster and restart
+	@echo "Building and loading image into Kind cluster..."
 
 .PHONY: load-image
 load-image: kind ## Load the mcp-gateway image into the kind cluster
 	$(call load-image,ghcr.io/kagenti/mcp-gateway:latest)
+	$(call load-image,ghcr.io/kagenti/mcp-controller:latest)
 
 .PHONY: build-image
 build-image: kind ## Build the mcp-gateway image
 	$(CONTAINER_ENGINE) build $(CONTAINER_ENGINE_EXTRA_FLAGS) -t ghcr.io/kagenti/mcp-gateway:latest .
+	$(CONTAINER_ENGINE) build $(CONTAINER_ENGINE_EXTRA_FLAGS) --file Dockerfile.controller -t ghcr.io/kagenti/mcp-controller:latest .
 
 # Deploy example MCPServer
 deploy-example: install-crd ## Deploy example MCPServer resource

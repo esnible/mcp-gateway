@@ -69,8 +69,16 @@ Create the name of the controller service account to use
 
 
 {{/*
-Docker image name
+Docker image name gateway
 */}}
 {{- define "mcp-gateway.image" -}}
 {{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}
+{{- end }}
+
+
+{{/*
+Docker image name controller
+*/}}
+{{- define "mcp-controller.image" -}}
+{{ .Values.imageController.repository }}:{{ .Values.imageController.tag | default .Chart.AppVersion }}
 {{- end }}

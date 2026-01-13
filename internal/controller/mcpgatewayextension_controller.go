@@ -8,7 +8,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
-	mcpv1alpha1 "github.com/kagenti/mcp-gateway/api/v1alpha1"
+	mcpv1alpha1 "github.com/Kuadrant/mcp-gateway/api/v1alpha1"
 )
 
 // MCPGatewayExtensionReconciler reconciles a MCPGatewayExtension object

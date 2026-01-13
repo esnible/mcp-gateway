@@ -2,8 +2,14 @@
 # Usage: ./verify_mcp_connection.sh [GATEWAY_URL] [TOOL_PREFIX]
 set -e
 
-GATEWAY_URL="${1:-https://mcp.apps.btofel-netedg-251219.devcluster.openshift.com/mcp}"
+GATEWAY_URL="$1"
 TOOL_PREFIX="${2:-local_}"
+
+if [ -z "$GATEWAY_URL" ]; then
+    echo "Usage: ./verify_mcp_connection.sh [GATEWAY_URL] [TOOL_PREFIX]"
+    echo "Error: GATEWAY_URL is required."
+    exit 1
+fi
 
 echo "Verifying connection to $GATEWAY_URL (expecting tools with prefix '$TOOL_PREFIX')..."
 
@@ -30,14 +36,10 @@ if grep -q "endpoint" sse.log; then
         fi
     fi
 else
-    # Fallback to logs if running against the specific cluster (optional/debug)
-    # This part is brittle and specific to the current context, so we'll rely on curl output mostly.
-    # But for robustness in this specific dev environment:
-    echo "Endpoint not found in curl output, checking logs (best effort)..."
-    SESSION_ID=$(kubectl logs -n mcp-system -l component=broker-router --tail=50 2>/dev/null | grep "Gateway client session connected" | tail -n 1 | sed 's/.*gatewaySessionID=\([^ ]*\).*/\1/')
-    SESSION_ID=$(echo "$SESSION_ID" | tr -d '\r\n')
+    # Fallback to check simple sessionId format if endpoint event missed
+    SESSION_ID=$(grep "sessionId=" sse.log | sed 's/.*sessionId=\([^&]*\).*/\1/')
     if [ -n "$SESSION_ID" ]; then
-        ENDPOINT="/mcp?sessionId=$SESSION_ID"
+         ENDPOINT="/mcp?sessionId=$SESSION_ID"
     fi
 fi
 

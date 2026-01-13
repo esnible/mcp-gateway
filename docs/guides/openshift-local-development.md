@@ -86,9 +86,12 @@ kubectl patch deployment mcp-gateway-broker-router -n mcp-system --type='json' -
 
 ## 3. Connecting an External MCP Server
 
-To connect an MCP server running off-cluster (e.g., on your laptop via ngrok or a static IP), use the provided automation script. This script configures the necessary Istio `ServiceEntry`, `DestinationRule`, and Gateway `HTTPRoute` resources with robust port 80/443 mapping.
+To connect an MCP server running off-cluster (e.g., on your laptop), you need to expose it via a public URL (using tools like `ngrok`, `localtunnel`, or a static IP).
 
-### Start your Tunnel (if using ngrok)
+The provided automation script helps configure the necessary Istio `ServiceEntry`, `DestinationRule`, and Gateway `HTTPRoute` resources to route traffic from the cluster to your external server.
+
+### Start your Tunnel (Optional)
+If you don't have a public IP, start a tunnel. For example, using ngrok:
 ```bash
 ngrok http 8080
 ```
@@ -99,11 +102,13 @@ Run the connection script and provide your external domain when prompted:
 ```bash
 ./config/local-tunnel/connect_external_server.sh
 ```
+*Note: You can pass the domain as an argument: `./config/local-tunnel/connect_external_server.sh my-tunnel.ngrok-free.dev`*
 
 This script automates the creation of:
 1.  **ServiceEntry:** Registers the external domain and maps port 80 traffic to port 443.
 2.  **DestinationRule:** Enforces TLS and SNI for the external connection.
 3.  **Service & Route:** Maps internal "hairpin" traffic to the external service.
+4.  **Headers:** Adds `ngrok-skip-browser-warning: true` (harmless for non-ngrok domains, but required for ngrok free tier).
 
 ## 4. Verification
 
@@ -111,7 +116,7 @@ After applying the configuration, verify the connection and tool discovery using
 
 ```bash
 # Usage: ./utils/verify_mcp_connection.sh [GATEWAY_URL]
-./utils/verify_mcp_connection.sh
+./utils/verify_mcp_connection.sh https://mcp.apps.your-cluster.com/mcp
 ```
 
 Successful output will list the tools discovered from your external server (e.g., `SUCCESS: Found 6 tools with prefix 'local_'!`).

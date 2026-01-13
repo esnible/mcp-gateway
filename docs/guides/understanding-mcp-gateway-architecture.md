@@ -4,13 +4,13 @@ This guide demonstrates how to explore and understand MCP Gateway's architecture
 
 ## About MCP Gateway Components
 
-You should read the [architecture overview](../design/overview.md) first to understand the high-level components and design.
+You should read the [overview](./overview.md) first to understand the high-level components and design.
 
 ## Prerequisites
 
 **Required Setup:** This guide assumes you have a running MCP Gateway cluster.
 
-See the [installation guide](../guides/how-to-install-and-configure.md) for setup instructions.
+See the [installation guide](./how-to-install-and-configure.md) for setup instructions.
 
 ## Step 1: Understanding Configuration and State
 
@@ -331,7 +331,7 @@ INFO Sending MCP routing instructions to Envoy: request_body:{response:{header_m
 INFO [EXT-PROC] Processing response body... (size: 136, end_of_stream: true)
 INFO [EXT-PROC] Response body content: event: message
 id: 3_0
-data: {"jsonrpc":"2.0","id":3,"result":{"content":[{"type":"text","text":"Hi Patryk"}],"structuredContent":{}}} 
+data: {"jsonrpc":"2.0","id":3,"result":{"content":[{"type":"text","text":"Hi Patryk"}],"structuredContent":{}}}
 ```
 
 ## Step 6: Troubleshooting Common Scenarios

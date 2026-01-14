@@ -18,6 +18,14 @@ endif
 
 WAIT_TIME ?=120s
 
+## Location to install dependencies to
+LOCALBIN ?= $(shell pwd)/bin
+$(LOCALBIN):
+	mkdir -p $(LOCALBIN)
+
+
+ENVTEST ?= $(LOCALBIN)/setup-envtest
+
 .PHONY: help
 help: ## Display this help
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
@@ -244,9 +252,10 @@ deploy-conformance-server: kind-load-conformance-server ## Deploy conformance MC
 	@echo "Waiting for MCPServer to be Ready..."
 	@kubectl wait --for=condition=Ready mcpserver/conformance-server -n mcp-test --timeout=120s
 
-# Build and push container image
+# Build and push container image TODO we have this and build-image lets just use one
 docker-build: ## Build container image locally
-	$(CONTAINER_ENGINE) build $(CONTAINER_ENGINE_EXTRA_FLAGS) -t mcp-gateway:local .
+	$(CONTAINER_ENGINE) build $(CONTAINER_ENGINE_EXTRA_FLAGS) -t ghcr.io/kagenti/mcp-gateway:latest .
+	$(CONTAINER_ENGINE) build $(CONTAINER_ENGINE_EXTRA_FLAGS) --file Dockerfile.controller -t ghcr.io/kagenti/mcp-controller:latest .
 
 # Common reload steps
 define reload-image
@@ -390,6 +399,16 @@ fix-newlines:
 
 test-unit:
 	go test ./...
+
+.PHONY: test-controller-integraion
+test-controller-integration: envtest
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" $(GINKGO) $(GINKGO_FLAGS) -tags=integration ./internal/controller
+  
+
+.PHONY: envtest
+envtest: $(ENVTEST) ## Download envtest-setup locally if necessary.
+$(ENVTEST): $(LOCALBIN)
+	test -s $(LOCALBIN)/setup-envtest || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 
 .PHONY: tools
 tools: ## Install all required tools (kind, helm, kustomize, yq, istioctl, controller-gen) to ./bin/

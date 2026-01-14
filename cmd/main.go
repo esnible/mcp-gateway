@@ -1,3 +1,4 @@
+// Package main is that starting point for the mcp controller
 /*
 Copyright 2024.
 

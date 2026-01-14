@@ -1,4 +1,4 @@
-// main implements the CLI for the MCP broker/router, AND the controller.
+// main implements the CLI for the MCP broker/router.
 package main
 
 import (
@@ -59,7 +59,6 @@ var (
 	managerTickerIntervalSecs int64
 	loglevel                  int
 	logFormat                 string
-	controllerMode            bool
 	enforceToolFilteringFlag  bool
 )
 

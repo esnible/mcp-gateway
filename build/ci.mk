@@ -17,8 +17,8 @@ ci-setup: kind tools ## Setup environment for CI (creates Kind cluster if needed
 	$(KUBECTL) wait --for condition=Established --timeout=60s crd/gateways.gateway.networking.k8s.io
 	# Build and load image
 	"$(MAKE)" docker-build
-	docker tag mcp-gateway:local ghcr.io/kagenti/mcp-gateway:latest
 	$(call load-image,ghcr.io/kagenti/mcp-gateway:latest)
+	$(call load-image,ghcr.io/kagenti/mcp-controller:latest)
 	# Install CRDs and deploy
 	"$(MAKE)" install-crd
 	"$(MAKE)" istio-install

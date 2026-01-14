@@ -1,3 +1,5 @@
+//go:build integration
+
 package controller
 
 import (
@@ -28,7 +30,7 @@ var _ = Describe("MCPGatewayExtension Controller", func() {
 
 		BeforeEach(func() {
 			By("creating the custom resource for the Kind MCPGatewayExtension")
-			err := k8sClient.Get(ctx, typeNamespacedName, mcpgatewayextension)
+			err := testK8sClient.Get(ctx, typeNamespacedName, mcpgatewayextension)
 			if err != nil && errors.IsNotFound(err) {
 				resource := &mcpv1alpha1.MCPGatewayExtension{
 					ObjectMeta: metav1.ObjectMeta{
@@ -37,24 +39,24 @@ var _ = Describe("MCPGatewayExtension Controller", func() {
 					},
 					// TODO(user): Specify other spec details if needed.
 				}
-				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
+				Expect(testK8sClient.Create(ctx, resource)).To(Succeed())
 			}
 		})
 
 		AfterEach(func() {
 			// TODO(user): Cleanup logic after each test, like removing the resource instance.
 			resource := &mcpv1alpha1.MCPGatewayExtension{}
-			err := k8sClient.Get(ctx, typeNamespacedName, resource)
+			err := testK8sClient.Get(ctx, typeNamespacedName, resource)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Cleanup the specific resource instance MCPGatewayExtension")
-			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
+			Expect(testK8sClient.Delete(ctx, resource)).To(Succeed())
 		})
 		It("should successfully reconcile the resource", func() {
 			By("Reconciling the created resource")
 			controllerReconciler := &MCPGatewayExtensionReconciler{
-				Client: k8sClient,
-				Scheme: k8sClient.Scheme(),
+				Client: testK8sClient,
+				Scheme: testK8sClient.Scheme(),
 			}
 
 			_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{

@@ -21,7 +21,7 @@ spec:
       jsonPath: .spec.toolPrefix
       name: Prefix
       type: string
-    - description: Target HTTPRoute
+    - description: Target HTTPRoute.  MCP Gateway only supports routes with a single BackendRef.
       jsonPath: .spec.targetRef.name
       name: Target
       type: string

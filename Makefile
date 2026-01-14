@@ -59,7 +59,7 @@ run-controller: controller
 	./bin/mcp-controller --log-level=${LOG_LEVEL}
 
 # controller-gen version
-CONTROLLER_GEN_VERSION ?= v0.19.0
+CONTROLLER_GEN_VERSION ?= v0.20.0
 
 # Install controller-gen
 .PHONY: controller-gen

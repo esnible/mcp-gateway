@@ -40,8 +40,7 @@ func init() {
 
 func main() {
 	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
-
-	fmt.Println("Controller starting (health: :8081, metrics: :8082)...")
+	ctrl.Log.Info("Controller starting (health: :8081, metrics: :8082)...")
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme.Scheme,
 		Metrics:                metricsserver.Options{BindAddress: ":8082"},

@@ -29,7 +29,7 @@ type MCPServerRegistration struct {
 // It specifies which HTTPRoutes point to MCP servers and how their tools should be federated.
 type MCPServerRegistrationSpec struct {
 	// TargetRef specifies an HTTPRoute that points to a backend MCP server.
-	// The referenced HTTPRoute should have a backend services that implements the MCP protocol.
+	// The referenced HTTPRoute should have a backend service that implements the MCP protocol.
 	// The controller will discover the backend service from this HTTPRoute and configure
 	// the broker to federate tools from that MCP server.
 	TargetRef TargetReference `json:"targetRef"`

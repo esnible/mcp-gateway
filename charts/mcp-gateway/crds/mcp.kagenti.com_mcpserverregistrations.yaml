@@ -21,7 +21,8 @@ spec:
       jsonPath: .spec.toolPrefix
       name: Prefix
       type: string
-    - description: Target HTTPRoute.  MCP Gateway only supports routes with a single BackendRef.
+    - description: Target HTTPRoute.  MCP Gateway only supports routes with a single
+        BackendRef
       jsonPath: .spec.targetRef.name
       name: Target
       type: string
@@ -48,8 +49,7 @@ spec:
       openAPIV3Schema:
         description: |-
           MCPServerRegistration defines a collection of MCP (Model Context Protocol) servers to be aggregated by the gateway.
-          It enables discovery and federation of tools from multiple backend MCP servers through HTTPRoute references,
-          providing a declarative way to configure which MCP servers should be accessible through the gateway.
+          It enables discovery and federation of tools from multiple backend MCP servers through HTTPRoute references, providing a declarative way to configure which MCP servers should be accessible through the gateway.
         properties:
           apiVersion:
             description: |-
@@ -77,8 +77,7 @@ spec:
                 description: |-
                   CredentialRef references a Secret containing authentication credentials for the MCP server.
                   The Secret should contain a key with the authentication token or credentials.
-                  The controller will aggregate these credentials and make them available to the broker
-                  via environment variables following the pattern: KAGENTI_{MCP_NAME}_CRED
+                  The controller will aggregate these credentials and make them available to the broker via environment variables following the pattern: KAGENTI_{MCP_NAME}_CRED
                 properties:
                   key:
                     default: token
@@ -102,7 +101,7 @@ spec:
               targetRef:
                 description: |-
                   TargetRef specifies an HTTPRoute that points to a backend MCP server.
-                  The referenced HTTPRoute should have backend services that implement the MCP protocol.
+                  The referenced HTTPRoute should have a backend services that implements the MCP protocol.
                   The controller will discover the backend service from this HTTPRoute and configure
                   the broker to federate tools from that MCP server.
                 properties:
@@ -134,8 +133,7 @@ spec:
                 description: |-
                   ToolPrefix is the prefix to add to all federated tools from referenced servers.
                   This helps avoid naming conflicts when aggregating tools from multiple sources.
-                  For example, if two servers both provide a 'search' tool, prefixes like 'server1_' and 'server2_'
-                  ensure they can coexist as 'server1_search' and 'server2_search'.
+                  For example, if two servers both provide a 'search' tool, prefixes like 'server1_' and 'server2_' ensure they can coexist as 'server1_search' and 'server2_search'.
                 type: string
                 x-kubernetes-validations:
                 - message: toolPrefix is immutable once set
@@ -146,8 +144,7 @@ spec:
           status:
             description: |-
               MCPServerRegistrationStatus represents the observed state of the MCPServerRegistration resource.
-              It contains conditions that indicate whether the referenced servers have been
-              successfully discovered and are ready for use.
+              It contains conditions that indicate whether the referenced servers have been successfully discovered and are ready for use.
             properties:
               conditions:
                 description: |-

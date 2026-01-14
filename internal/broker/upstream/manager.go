@@ -72,6 +72,8 @@ type MCPManager struct {
 	tools []mcp.Tool
 	// toolsMap is a map of from tool name to tool for quick look up
 	toolsMap map[string]mcp.Tool
+	//servedToolsMap is a map of the served tools names (including prefix if any)
+	servedToolsMap map[string]mcp.Tool
 	// toolsLock protects tools, serverTools
 	toolsLock sync.RWMutex
 
@@ -100,6 +102,7 @@ func NewUpstreamMCPManager(upstream MCP, gatewaySever ToolsAdderDeleter, logger 
 		logger:         logger,
 		done:           make(chan struct{}),
 		toolsMap:       map[string]mcp.Tool{},
+		servedToolsMap: map[string]mcp.Tool{},
 	}
 }
 
@@ -221,7 +224,9 @@ func (man *MCPManager) manage(ctx context.Context) {
 	// set a tools map for quick look up by other functions
 	for _, newTool := range fetched {
 		man.toolsMap[newTool.Name] = newTool
+		man.servedToolsMap[prefixedName(man.MCP.GetPrefix(), newTool.Name)] = newTool
 	}
+	// serverTools will have the prefix if one is set
 	man.serverTools = toAdd
 	man.toolsLock.Unlock()
 	man.setStatus(nil, numberOfTools)
@@ -303,7 +308,6 @@ func (man *MCPManager) getTools(ctx context.Context) ([]mcp.Tool, []mcp.Tool, er
 // GetManagedTools returns a copy of all tools discovered from the upstream server.
 // The returned tools have their original names without the gateway prefix.
 func (man *MCPManager) GetManagedTools() []mcp.Tool {
-	// return a copy to avoid races
 	man.toolsLock.RLock()
 	result := make([]mcp.Tool, len(man.tools))
 	copy(result, man.tools)
@@ -311,14 +315,14 @@ func (man *MCPManager) GetManagedTools() []mcp.Tool {
 	return result
 }
 
-// GetManagedTool takes the original tool name (no prefix) and returns a copy of the tool if this managed MCP server has that tool otherwise it returns nil
-func (man *MCPManager) GetManagedTool(toolName string) *mcp.Tool {
+// GetServedManagedTool will return the tool if present that is actually beng served by the gateway.
+// It expects a prefixed tool if a prefix is present.
+func (man *MCPManager) GetServedManagedTool(toolName string) *mcp.Tool {
 	man.toolsLock.RLock()
 	defer man.toolsLock.RUnlock()
-	tool, ok := man.toolsMap[toolName]
+	tool, ok := man.servedToolsMap[toolName]
 	if ok {
-		copyTool := tool
-		return &copyTool
+		return &tool
 	}
 	return nil
 }
@@ -333,6 +337,7 @@ func (man *MCPManager) SetToolsForTesting(tools []mcp.Tool) {
 	// set a tools map for quick look up by other functions
 	for _, newTool := range tools {
 		man.toolsMap[newTool.Name] = newTool
+		man.servedToolsMap[prefixedName(man.MCP.GetPrefix(), newTool.Name)] = newTool
 	}
 }
 

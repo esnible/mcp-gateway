@@ -125,6 +125,10 @@ Use Helm to install (this adds MCPGatewayExtension and ReferenceGrants to the ex
 
 ## Limitations
 
-There can only be one MCPGatewayExtension resource per namespace.
+**There can only be one MCPGatewayExtension resource per namespace:**
 
 The MCPGatewayExtension resource indicates to the controller where it should create the configuration. This configuration is mounted into the router and broker components via a named secret. Having multiple MCPGatewayExtension resources in a single namespace would result in the secret being overwritten, causing inconsistent behavior. This limitation can be addressed once we add an operator.
+
+**Only one MCPGatewayExtension can target a given gateway:**
+
+The MCPGatewayExtension represents configuring a gateway with the capability to act as an MCP Gateway. As each MCPGatewayExtension is intended to represent a single deployment of the MCP Gateway, it doesn't make sense at this stage to allow multiple extensions to target the same gateway. If multiple MCPGatewayExtensions target a single gateway, this will be considered a conflict by the controller. The controller will use the oldest resource as the valid extension and  mark the conflict in the status of any others via the ready condition.  

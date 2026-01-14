@@ -13,10 +13,15 @@ import (
 
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	mcpv1alpha1 "github.com/Kuadrant/mcp-gateway/api/v1alpha1"
 	// +kubebuilder:scaffold:imports
@@ -26,11 +31,13 @@ import (
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
 var (
-	ctx           context.Context
-	cancel        context.CancelFunc
-	testEnv       *envtest.Environment
-	cfg           *rest.Config
-	testK8sClient client.Client
+	ctx               context.Context
+	cancel            context.CancelFunc
+	testEnv           *envtest.Environment
+	cfg               *rest.Config
+	testK8sClient     client.Client // direct client for test operations
+	testMgr           manager.Manager
+	testIndexedClient client.Client // manager's client with field indexes for reconciler
 )
 
 func TestControllers(t *testing.T) {
@@ -47,12 +54,19 @@ var _ = BeforeSuite(func() {
 	var err error
 	err = mcpv1alpha1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
+	err = gatewayv1.Install(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
+	err = gatewayv1beta1.Install(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
 
 	// +kubebuilder:scaffold:scheme
 
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
-		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "config", "crd")},
+		CRDDirectoryPaths: []string{
+			filepath.Join("..", "..", "config", "crd"),
+			filepath.Join("..", "..", "config", "crd", "gateway-api"),
+		},
 		ErrorIfCRDPathMissing: true,
 	}
 
@@ -66,6 +80,34 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
 
+	// create a manager to set up field indexes
+	testMgr, err = ctrl.NewManager(cfg, ctrl.Options{
+		Scheme: scheme.Scheme,
+		Metrics: metricsserver.Options{
+			BindAddress: "0", // disable metrics
+		},
+	})
+	Expect(err).NotTo(HaveOccurred())
+
+	// set up field indexes for the MCPGatewayExtension controller
+	err = setupIndexExtensionToGateway(testMgr.GetFieldIndexer())
+	Expect(err).NotTo(HaveOccurred())
+	err = setupIndexExtensionToReferenceGrant(testMgr.GetFieldIndexer())
+	Expect(err).NotTo(HaveOccurred())
+
+	// start the manager's cache
+	go func() {
+		err := testMgr.Start(ctx)
+		Expect(err).NotTo(HaveOccurred())
+	}()
+
+	// wait for cache to sync
+	Expect(testMgr.GetCache().WaitForCacheSync(ctx)).To(BeTrue())
+
+	testIndexedClient = testMgr.GetClient()
+	Expect(testIndexedClient).NotTo(BeNil())
+
+	// create a direct client for test operations (bypasses cache)
 	testK8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(testK8sClient).NotTo(BeNil())

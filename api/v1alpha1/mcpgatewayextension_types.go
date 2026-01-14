@@ -15,7 +15,7 @@ type MCPGatewayExtensionSpec struct {
 	// More info: https://book.kubebuilder.io/reference/markers/crd-validation.html
 
 	// TargetRef specifies a Gateway that should be extended to handle the MCP Protocol.
-	TargetRef TargetReference `json:"targetRef"`
+	TargetRef MCPGatewayExtensionTargetReference `json:"targetRef"`
 }
 
 // MCPGatewayExtensionStatus defines the observed state of MCPGatewayExtension.
@@ -68,6 +68,27 @@ type MCPGatewayExtensionList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitzero"`
 	Items           []MCPGatewayExtension `json:"items"`
+}
+
+// MCPGatewayExtensionTargetReference identifies an HTTPRoute that points to MCP servers.
+// It follows Gateway API patterns for cross-resource references.
+type MCPGatewayExtensionTargetReference struct {
+	// Group is the group of the target resource.
+	// +kubebuilder:default=gateway.networking.k8s.io
+	// +kubebuilder:validation:Enum=gateway.networking.k8s.io
+	Group string `json:"group"`
+
+	// Kind is the kind of the target resource.
+	// +kubebuilder:default=Gateway
+	// +kubebuilder:validation:Enum=Gateway
+	Kind string `json:"kind"`
+
+	// Name is the name of the target resource.
+	Name string `json:"name"`
+
+	// Namespace of the target resource (optional, defaults to same namespace)
+	// +optional
+	Namespace string `json:"namespace,omitempty"`
 }
 
 func init() {

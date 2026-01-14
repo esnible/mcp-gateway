@@ -30,8 +30,7 @@ import (
 
 	istiov1beta1 "istio.io/api/networking/v1beta1"
 
-	"github.com/Kuadrant/mcp-gateway/pkg/apis/mcp/v1alpha1"
-	mcpv1alpha1 "github.com/Kuadrant/mcp-gateway/pkg/apis/mcp/v1alpha1"
+	mcpv1alpha1 "github.com/Kuadrant/mcp-gateway/api/v1alpha1"
 )
 
 const (
@@ -463,7 +462,7 @@ func (b *MCPServerRegistrationBuilder) WithToolPrefix(prefix string) *MCPServerR
 }
 
 // Register creates all resources and returns them
-func (b *MCPServerRegistrationBuilder) Register(ctx context.Context) *v1alpha1.MCPServer {
+func (b *MCPServerRegistrationBuilder) Register(ctx context.Context) *mcpv1alpha1.MCPServer {
 
 	if b.credential != nil {
 		GinkgoWriter.Println("creating credential ", b.credential.Name)
@@ -874,7 +873,7 @@ func NewExternalMCPServerRegistration(testName string, k8sClient client.Client, 
 	}
 }
 
-func (b *ExternalMCPServerRegistrationBuilder) Register(ctx context.Context) *v1alpha1.MCPServer {
+func (b *ExternalMCPServerRegistrationBuilder) Register(ctx context.Context) *mcpv1alpha1.MCPServer {
 	GinkgoWriter.Println("creating ServiceEntry", b.serviceEntry.Name)
 	Expect(b.k8sClient.Create(ctx, b.serviceEntry)).To(Succeed())
 

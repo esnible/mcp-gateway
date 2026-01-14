@@ -25,7 +25,6 @@ import (
 	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	mcpv1alpha1 "github.com/Kuadrant/mcp-gateway/api/v1alpha1"
-	"github.com/Kuadrant/mcp-gateway/pkg/apis/mcp/v1alpha1"
 )
 
 var (
@@ -87,7 +86,7 @@ var _ = BeforeSuite(func() {
 
 	By("cleaning up all existing mcpservers")
 
-	err = k8sClient.DeleteAllOf(ctx, &v1alpha1.MCPServer{}, client.InNamespace("mcp-test"), &client.DeleteAllOfOptions{ListOptions: client.ListOptions{
+	err = k8sClient.DeleteAllOf(ctx, &mcpv1alpha1.MCPServer{}, client.InNamespace("mcp-test"), &client.DeleteAllOfOptions{ListOptions: client.ListOptions{
 		LabelSelector: labels.Everything(),
 	}})
 	Expect(err).ToNot(HaveOccurred(), "all existing MCPSevers should be removed before the e2e test suite")

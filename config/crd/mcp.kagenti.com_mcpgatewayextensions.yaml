@@ -51,10 +51,10 @@ spec:
                     - gateway.networking.k8s.io
                     type: string
                   kind:
-                    default: HTTPRoute
+                    default: Gateway
                     description: Kind is the kind of the target resource.
                     enum:
-                    - HTTPRoute
+                    - Gateway
                     type: string
                   name:
                     description: Name is the name of the target resource.

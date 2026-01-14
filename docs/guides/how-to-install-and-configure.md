@@ -23,9 +23,9 @@ MCP Gateway runs on Kubernetes and integrates with Gateway API and Istio. You sh
 - You have a Kubernetes cluster with Gateway API CRDs and Istio installed
 - Ready to deploy MCP Gateway immediately
 
-**Option C: Local Development Cluster**  
+<!-- **Option C: Local Development Cluster**
 - Set up a local Kind cluster with all prerequisites
-- See: [Kind Cluster Setup Guide](./kind-cluster-setup.md)
+- See: [Kind Cluster Setup Guide](./kind-cluster-setup.md) -->
 
 ### MCP Servers
 
@@ -55,7 +55,7 @@ This automatically installs:
 
 > **Note:** The `gateway.publicHost` value must match the hostname configured in your Gateway listener (see [Configure Gateway Listener and Route](./configure-mcp-gateway-listener-and-router.md)).
 
-### Method 2: Kustomize
+<!-- ### Method 2: Kustomize
 
 Install using Kubernetes manifests:
 
@@ -69,14 +69,14 @@ This provides the same components as Helm but with less configuration flexibilit
 
 For non-Kubernetes deployments or advanced use cases, see [Standalone Installation Guide](./binary-install.md).
 
-**Note:** This method is not fully supported and requires manual configuration of routing and service discovery. Most guides in this documentation use Kubernetes-based setup, leveraging CRDs and kubectl commands.
+**Note:** This method is not fully supported and requires manual configuration of routing and service discovery. Most guides in this documentation use Kubernetes-based setup, leveraging CRDs and kubectl commands. -->
 
 ## Post-Installation Configuration
 
 After installation, you'll need to configure the gateway and connect your MCP servers:
 
 1. **[Configure Gateway Listener and Route](./configure-mcp-gateway-listener-and-router.md)** - Set up traffic routing
-2. **[Configure MCP Servers](./configure-mcp-servers.md)** - Connect internal MCP servers  
+2. **[Configure MCP Servers](./configure-mcp-servers.md)** - Connect internal MCP servers
 3. **[Connect External MCP Servers](./external-mcp-server.md)** - Connect to external APIs
 
 ## Optional Configuration

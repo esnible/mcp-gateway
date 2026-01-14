@@ -400,7 +400,7 @@ fix-newlines:
 test-unit:
 	go test ./...
 
-.PHONY: test-controller-integraion
+.PHONY: test-controller-integration
 test-controller-integration: envtest
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" $(GINKGO) $(GINKGO_FLAGS) -tags=integration ./internal/controller
   

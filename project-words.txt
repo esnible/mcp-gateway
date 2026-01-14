@@ -289,3 +289,12 @@ ngrok
 toolhive
 uninimically
 Unregistration
+envtest
+ENVTEST
+finalizers
+integration
+LOCALBIN
+manifestskustomizesamples
+mcpgatewayextension
+mcpgatewayextensions
+omitzero

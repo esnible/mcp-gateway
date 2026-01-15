@@ -4,52 +4,21 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.20.0
-  name: mcpservers.mcp.kagenti.com
+  name: mcpgatewayextensions.mcp.kagenti.com
 spec:
   group: mcp.kagenti.com
   names:
-    kind: MCPServer
-    listKind: MCPServerList
-    plural: mcpservers
-    shortNames:
-    - mcpsrv
-    singular: mcpserver
+    kind: MCPGatewayExtension
+    listKind: MCPGatewayExtensionList
+    plural: mcpgatewayextensions
+    singular: mcpgatewayextension
   scope: Namespaced
   versions:
-  - additionalPrinterColumns:
-    - description: Tool prefix for federation
-      jsonPath: .spec.toolPrefix
-      name: Prefix
-      type: string
-    - description: Target HTTPRoute
-      jsonPath: .spec.targetRef.name
-      name: Target
-      type: string
-    - description: MCP endpoint path
-      jsonPath: .spec.path
-      name: Path
-      type: string
-    - description: Ready status
-      jsonPath: .status.conditions[?(@.type=='Ready')].status
-      name: Ready
-      type: string
-    - description: Number of discovered tools
-      jsonPath: .status.discoveredTools
-      name: Tools
-      type: integer
-    - jsonPath: .spec.credentialRef.name
-      name: Credentials
-      type: string
-    - jsonPath: .metadata.creationTimestamp
-      name: Age
-      type: date
-    name: v1alpha1
+  - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: |-
-          MCPServer defines a collection of MCP (Model Context Protocol) servers to be aggregated by the gateway.
-          It enables discovery and federation of tools from multiple backend MCP servers through HTTPRoute references,
-          providing a declarative way to configure which MCP servers should be accessible through the gateway.
+        description: MCPGatewayExtension is the Schema for the mcpgatewayextensions
+          API
         properties:
           apiVersion:
             description: |-
@@ -69,42 +38,11 @@ spec:
           metadata:
             type: object
           spec:
-            description: |-
-              MCPServerSpec defines the desired state of MCPServer.
-              It specifies which HTTPRoutes point to MCP servers and how their tools should be federated.
+            description: spec defines the desired state of MCPGatewayExtension
             properties:
-              credentialRef:
-                description: |-
-                  CredentialRef references a Secret containing authentication credentials for the MCP server.
-                  The Secret should contain a key with the authentication token or credentials.
-                  The controller will aggregate these credentials and make them available to the broker
-                  via environment variables following the pattern: KAGENTI_{MCP_NAME}_CRED
-                properties:
-                  key:
-                    default: token
-                    description: |-
-                      Key is the key within the Secret that contains the credential value.
-                      If not specified, defaults to "token".
-                    type: string
-                  name:
-                    description: Name is the name of the Secret resource.
-                    type: string
-                required:
-                - name
-                type: object
-              path:
-                default: /mcp
-                description: |-
-                  Path specifies the URL path where the MCP server endpoint is exposed.
-                  If not specified, defaults to "/mcp".
-                  This allows connecting to MCP servers that use custom paths like "/v1/mcp" or "/api/mcp".
-                type: string
               targetRef:
-                description: |-
-                  TargetRef specifies an HTTPRoute that points to a backend MCP server.
-                  The referenced HTTPRoute should have backend services that implement the MCP protocol.
-                  The controller will discover the backend service from this HTTPRoute and configure
-                  the broker to federate tools from that MCP server.
+                description: TargetRef specifies a Gateway that should be extended
+                  to handle the MCP Protocol.
                 properties:
                   group:
                     default: gateway.networking.k8s.io
@@ -113,10 +51,10 @@ spec:
                     - gateway.networking.k8s.io
                     type: string
                   kind:
-                    default: HTTPRoute
+                    default: Gateway
                     description: Kind is the kind of the target resource.
                     enum:
-                    - HTTPRoute
+                    - Gateway
                     type: string
                   name:
                     description: Name is the name of the target resource.
@@ -130,29 +68,23 @@ spec:
                 - kind
                 - name
                 type: object
-              toolPrefix:
-                description: |-
-                  ToolPrefix is the prefix to add to all federated tools from referenced servers.
-                  This helps avoid naming conflicts when aggregating tools from multiple sources.
-                  For example, if two servers both provide a 'search' tool, prefixes like 'server1_' and 'server2_'
-                  ensure they can coexist as 'server1_search' and 'server2_search'.
-                type: string
-                x-kubernetes-validations:
-                - message: toolPrefix is immutable once set
-                  rule: self == oldSelf || oldSelf == ''
             required:
             - targetRef
             type: object
           status:
-            description: |-
-              MCPServerStatus represents the observed state of the MCPServer resource.
-              It contains conditions that indicate whether the referenced servers have been
-              successfully discovered and are ready for use.
+            description: status defines the observed state of MCPGatewayExtension
             properties:
               conditions:
                 description: |-
-                  Conditions represent the latest available observations of the MCPServer's state.
-                  Common conditions include 'Ready' to indicate if all referenced servers are accessible.
+                  conditions represent the current state of the MCPGatewayExtension resource.
+                  Each condition has a unique type and reflects the status of a specific aspect of the resource.
+
+                  Standard condition types include:
+                  - "Available": the resource is fully functional
+                  - "Progressing": the resource is being created or updated
+                  - "Degraded": the resource failed to reach or maintain its desired state
+
+                  The status of each condition is one of True, False, or Unknown.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
@@ -208,11 +140,12 @@ spec:
                   - type
                   type: object
                 type: array
-              discoveredTools:
-                description: DiscoveredTools is the number of tools discovered from
-                  this MCPServer
-                type: integer
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
             type: object
+        required:
+        - spec
         type: object
     served: true
     storage: true

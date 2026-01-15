@@ -21,11 +21,10 @@ spec:
       serviceAccountName: mcp-controller
       containers:
         - name: mcp-controller
-          image: ghcr.io/kagenti/mcp-gateway:latest
+          image: ghcr.io/kagenti/mcp-controller:latest
           imagePullPolicy: IfNotPresent
           command:
-            - ./mcp_gateway
-            - --controller
+            - ./mcp_controller
             - --log-level=0 # info level
           ports:
             - name: health

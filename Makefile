@@ -16,18 +16,32 @@ ifeq (podman,$(CONTAINER_ENGINE))
 	CONTAINER_ENGINE_EXTRA_FLAGS ?= --load
 endif
 
+WAIT_TIME ?=120s
+
+## Location to install dependencies to
+LOCALBIN ?= $(shell pwd)/bin
+$(LOCALBIN):
+	mkdir -p $(LOCALBIN)
+
+
+ENVTEST ?= $(LOCALBIN)/setup-envtest
+
 .PHONY: help
 help: ## Display this help
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
-.PHONY: build clean mcp-broker-router
+.PHONY: build clean mcp-broker-router controller
 
 # Build the combined broker and router
 mcp-broker-router:
 	go build -o bin/mcp-broker-router ./cmd/mcp-broker-router
 
+# Build the controller
+controller:
+	go build -o bin/mcp-controller ./cmd
+
 # Build all binaries
-build: mcp-broker-router
+build: mcp-broker-router controller
 
 # Clean build artifacts
 clean:
@@ -40,13 +54,29 @@ run: mcp-broker-router
 # Run the broker and router with debug logging (alias for backwards compatibility)
 run-mcp-broker-router: run
 
-# Run in controller mode (discovers MCP servers from Kubernetes)
-run-controller: mcp-broker-router
-	./bin/mcp-broker-router --controller --log-level=${LOG_LEVEL}
+# Run the controller (discovers MCP servers from Kubernetes)
+run-controller: controller
+	./bin/mcp-controller --log-level=${LOG_LEVEL}
+
+# controller-gen version
+CONTROLLER_GEN_VERSION ?= v0.20.0
+
+# Install controller-gen
+.PHONY: controller-gen
+controller-gen: ## Install controller-gen to ./bin/
+	@mkdir -p bin
+	@if [ ! -f bin/controller-gen ]; then \
+		echo "Installing controller-gen $(CONTROLLER_GEN_VERSION)..."; \
+		GOBIN=$(shell pwd)/bin go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_GEN_VERSION); \
+	fi
+
+# Generate code (deepcopy, etc.)
+generate: controller-gen ## Generate code including deepcopy functions
+	bin/controller-gen object paths="./api/..."
 
 # Generate CRDs from Go types
-generate-crds: ## Generate CRD manifests from Go types
-	controller-gen crd paths="./pkg/apis/..." output:dir=config/crd
+generate-crds: generate ## Generate CRD manifests from Go types
+	bin/controller-gen crd paths="./api/..." output:dir=config/crd
 
 # Update Helm chart CRDs from generated ones
 update-helm-crds: generate-crds ## Update Helm chart CRDs (run after generate-crds)
@@ -123,31 +153,36 @@ define load-image
 	   exit $${EXITVAL}
 endef
 
-.PHONY: build-and-load-image
-build-and-load-image: kind build-image load-image  ## Build & load router/broker/controller image into the Kind cluster and restart
-	@echo "Building and loading image into Kind cluster..."
+.PHONY: restart-all
+restart-all:
 	kubectl rollout restart deployment/mcp-broker-router -n mcp-system 2>/dev/null || true
 	kubectl rollout restart deployment/mcp-controller -n mcp-system 2>/dev/null || true
+
+.PHONY: build-and-load-image
+build-and-load-image: kind build-image load-image restart-all  ## Build & load router/broker/controller image into the Kind cluster and restart
+	@echo "Building and loading image into Kind cluster..."
 
 .PHONY: load-image
 load-image: kind ## Load the mcp-gateway image into the kind cluster
 	$(call load-image,ghcr.io/kagenti/mcp-gateway:latest)
+	$(call load-image,ghcr.io/kagenti/mcp-controller:latest)
 
 .PHONY: build-image
 build-image: kind ## Build the mcp-gateway image
 	$(CONTAINER_ENGINE) build $(CONTAINER_ENGINE_EXTRA_FLAGS) -t ghcr.io/kagenti/mcp-gateway:latest .
+	$(CONTAINER_ENGINE) build $(CONTAINER_ENGINE_EXTRA_FLAGS) --file Dockerfile.controller -t ghcr.io/kagenti/mcp-controller:latest .
 
 # Deploy example MCPServer
 deploy-example: install-crd ## Deploy example MCPServer resource
 	@echo "Waiting for test servers to be ready..."
-	@kubectl wait --for=condition=Available deployment -n mcp-test -l app=mcp-test-server1 --timeout=60s
-	@kubectl wait --for=condition=Available deployment -n mcp-test -l app=mcp-test-server2 --timeout=60s
-	@kubectl wait --for=condition=Available deployment -n mcp-test -l app=mcp-test-server3 --timeout=90s
-	@kubectl wait --for=condition=Available deployment -n mcp-test -l app=mcp-api-key-server --timeout=60s
-	@kubectl wait --for=condition=Available deployment -n mcp-test -l app=mcp-custom-path-server --timeout=60s 2>/dev/null || true
-	@kubectl wait --for=condition=Available deployment -n mcp-test -l app=mcp-oidc-server --timeout=60s
-	@kubectl wait --for=condition=Available deployment -n mcp-test -l app=everything-server --timeout=60s
-	@kubectl wait --for=condition=Available deployment -n mcp-test -l app=mcp-custom-response --timeout=60s
+	@kubectl wait --for=condition=Available deployment -n mcp-test -l app=mcp-test-server1 --timeout=$(WAIT_TIME)
+	@kubectl wait --for=condition=Available deployment -n mcp-test -l app=mcp-test-server2 --timeout=$(WAIT_TIME)
+	@kubectl wait --for=condition=Available deployment -n mcp-test -l app=mcp-test-server3 --timeout=$(WAIT_TIME)
+	@kubectl wait --for=condition=Available deployment -n mcp-test -l app=mcp-api-key-server --timeout=$(WAIT_TIME)
+	@kubectl wait --for=condition=Available deployment -n mcp-test -l app=mcp-custom-path-server --timeout=$(WAIT_TIME) 2>/dev/null || true
+	@kubectl wait --for=condition=Available deployment -n mcp-test -l app=mcp-oidc-server --timeout=$(WAIT_TIME)
+	@kubectl wait --for=condition=Available deployment -n mcp-test -l app=everything-server --timeout=$(WAIT_TIME)
+	@kubectl wait --for=condition=Available deployment -n mcp-test -l app=mcp-custom-response --timeout=$(WAIT_TIME)
 	@echo "All test servers ready, deploying MCPServer resources..."
 	kubectl apply -f config/samples/mcpserver-test-servers-base.yaml
 	kubectl apply -f config/samples/mcpserver-test-servers-extended.yaml
@@ -155,7 +190,7 @@ deploy-example: install-crd ## Deploy example MCPServer resource
 	@sleep 3
 	@echo "Restarting broker to ensure all connections..."
 	kubectl rollout restart deployment/mcp-broker-router -n mcp-system
-	@kubectl rollout status deployment/mcp-broker-router -n mcp-system --timeout=60s
+	@kubectl rollout status deployment/mcp-broker-router -n mcp-system --timeout=$(WAIT_TIME)
 
 # Build test server Docker images
 build-test-servers: ## Build test server Docker images locally
@@ -201,7 +236,8 @@ deploy-test-servers: kind-load-test-servers ## Deploy test MCP servers for local
 	kubectl apply -k config/test-servers/
 	@echo "Patching OIDC-enabled MCP server to be able to connect to Keycloak..."
 	@kubectl create configmap mcp-gateway-keycloak-cert -n mcp-test --from-file=keycloak.crt=./out/certs/ca.crt 2>/dev/null || true
-	@export GATEWAY_IP=$$(kubectl get gateway/mcp-gateway -n gateway-system -o jsonpath='{.status.addresses[0].value}' 2>/dev/null || echo '127.0.0.1'); \
+	@kubectl wait --for=condition=Programmed gateway/mcp-gateway -n gateway-system --timeout=${WAIT_TIME}
+	@export GATEWAY_IP=$$(kubectl get gateway/mcp-gateway -n gateway-system -o jsonpath='{.status.addresses[0].value}'); \
 	  kubectl patch deployment mcp-oidc-server -n mcp-test --type='json' -p="$$(cat config/keycloak/patch-hostaliases.json | envsubst)"
 
 # Deploy conformance server
@@ -216,9 +252,10 @@ deploy-conformance-server: kind-load-conformance-server ## Deploy conformance MC
 	@echo "Waiting for MCPServer to be Ready..."
 	@kubectl wait --for=condition=Ready mcpserver/conformance-server -n mcp-test --timeout=120s
 
-# Build and push container image
+# Build and push container image TODO we have this and build-image lets just use one
 docker-build: ## Build container image locally
-	$(CONTAINER_ENGINE) build $(CONTAINER_ENGINE_EXTRA_FLAGS) -t mcp-gateway:local .
+	$(CONTAINER_ENGINE) build $(CONTAINER_ENGINE_EXTRA_FLAGS) -t ghcr.io/kagenti/mcp-gateway:latest .
+	$(CONTAINER_ENGINE) build $(CONTAINER_ENGINE_EXTRA_FLAGS) --file Dockerfile.controller -t ghcr.io/kagenti/mcp-controller:latest .
 
 # Common reload steps
 define reload-image
@@ -363,14 +400,25 @@ fix-newlines:
 test-unit:
 	go test ./...
 
+.PHONY: test-controller-integration
+test-controller-integration: envtest
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" $(GINKGO) $(GINKGO_FLAGS) -tags=integration ./internal/controller
+  
+
+.PHONY: envtest
+envtest: $(ENVTEST) ## Download envtest-setup locally if necessary.
+$(ENVTEST): $(LOCALBIN)
+	test -s $(LOCALBIN)/setup-envtest || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+
 .PHONY: tools
-tools: ## Install all required tools (kind, helm, kustomize, yq, istioctl) to ./bin/
+tools: ## Install all required tools (kind, helm, kustomize, yq, istioctl, controller-gen) to ./bin/
 	@echo "Checking and installing required tools to ./bin/ ..."
 	@if [ -f bin/kind ]; then echo "[OK] kind already installed"; else echo "Installing kind..."; "$(MAKE)" -s kind; fi
 	@if [ -f bin/helm ]; then echo "[OK] helm already installed"; else echo "Installing helm..."; "$(MAKE)" -s helm; fi
 	@if [ -f bin/kustomize ]; then echo "[OK] kustomize already installed"; else echo "Installing kustomize..."; "$(MAKE)" -s kustomize; fi
 	@if [ -f bin/yq ]; then echo "[OK] yq already installed"; else echo "Installing yq..."; "$(MAKE)" -s yq; fi
 	@if [ -f bin/istioctl ]; then echo "[OK] istioctl already installed"; else echo "Installing istioctl..."; "$(MAKE)" -s istioctl; fi
+	@if [ -f bin/controller-gen ]; then echo "[OK] controller-gen already installed"; else echo "Installing controller-gen..."; "$(MAKE)" -s controller-gen; fi
 	@echo "All tools ready!"
 
 .PHONY: local-env-setup

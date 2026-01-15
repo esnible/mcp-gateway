@@ -1,0 +1,9 @@
+apiVersion: mcp.kagenti.com/v1alpha1
+kind: MCPGatewayExtension
+metadata:
+  labels:
+    app.kubernetes.io/name: mcp-gateway
+    app.kubernetes.io/managed-by: kustomize
+  name: mcpgatewayextension-sample
+spec:
+  # TODO(user): Add fields here

@@ -1,4 +1,4 @@
-// main implements the CLI for the MCP broker/router, AND the controller.
+// main implements the CLI for the MCP broker/router.
 package main
 
 import (
@@ -14,13 +14,12 @@ import (
 	"sync"
 	"time"
 
+	mcpv1alpha1 "github.com/Kuadrant/mcp-gateway/api/v1alpha1"
 	"github.com/Kuadrant/mcp-gateway/internal/broker"
 	"github.com/Kuadrant/mcp-gateway/internal/clients"
 	config "github.com/Kuadrant/mcp-gateway/internal/config"
 	mcpRouter "github.com/Kuadrant/mcp-gateway/internal/mcp-router"
 	"github.com/Kuadrant/mcp-gateway/internal/session"
-	mcpv1alpha1 "github.com/Kuadrant/mcp-gateway/pkg/apis/mcp/v1alpha1"
-	"github.com/Kuadrant/mcp-gateway/pkg/controller"
 	goenv "github.com/caitlinelfring/go-env-default"
 	extProcV3 "github.com/envoyproxy/go-control-plane/envoy/service/ext_proc/v3"
 	"github.com/fsnotify/fsnotify"
@@ -29,10 +28,6 @@ import (
 	"google.golang.org/grpc"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/healthz"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
@@ -64,7 +59,6 @@ var (
 	managerTickerIntervalSecs int64
 	loglevel                  int
 	logFormat                 string
-	controllerMode            bool
 	enforceToolFilteringFlag  bool
 )
 
@@ -130,7 +124,6 @@ func main() {
 	flag.Int64Var(&sessionDurationInMins, "session-length", 60*24, "default session length with the gateway in minutes. Default 24h")
 	flag.Int64Var(&brokerWriteTimeoutSecs, "mcp-broker-write-timeout", 0, "HTTP write timeout in seconds for the broker. Default 0 (disabled) for SSE notification support. Set > 0 to enable timeout.")
 	flag.Int64Var(&managerTickerIntervalSecs, "mcp-check-interval", 60, "interval in seconds for MCP manager backend health checks. Default 60 seconds.")
-	flag.BoolVar(&controllerMode, "controller", false, "Run in controller mode")
 	flag.BoolVar(&enforceToolFilteringFlag, "enforce-tool-filtering", false, "when enabled an x-authorized-tools header will be needed to return any tools")
 	flag.Parse()
 
@@ -151,20 +144,6 @@ func main() {
 
 	if logFormat == "json" {
 		logger = slog.New(slog.NewJSONHandler(os.Stdout, loggerOpts))
-	}
-	if controllerMode {
-		logger.Info("Starting in controller mode...")
-		go func() {
-			if err := runController(); err != nil {
-				log.Fatalf("Controller failed: %v", err)
-			}
-		}()
-		// Controller doesn't need to run broker/router
-		stop := make(chan os.Signal, 1)
-		signal.Notify(stop, os.Interrupt)
-		<-stop
-		logger.Info("shutting down controller")
-		return
 	}
 
 	ctx := context.Background()
@@ -376,41 +355,4 @@ func LoadConfig(path string) {
 			s.Hostname,
 		)
 	}
-}
-
-func runController() error {
-	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
-
-	fmt.Println("Controller starting (health: :8081, metrics: :8082)...")
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:                 scheme,
-		Metrics:                metricsserver.Options{BindAddress: ":8082"},
-		LeaderElection:         false,
-		HealthProbeBindAddress: ":8081",
-	})
-	if err != nil {
-		return fmt.Errorf("unable to start manager: %w", err)
-	}
-
-	if err = (&controller.MCPReconciler{
-		Client:    mgr.GetClient(),
-		Scheme:    mgr.GetScheme(),
-		APIReader: mgr.GetAPIReader(),
-	}).SetupWithManager(mgr); err != nil {
-		return fmt.Errorf("unable to create controller: %w", err)
-	}
-
-	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
-		return fmt.Errorf("unable to set up health check: %w", err)
-	}
-	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
-		return fmt.Errorf("unable to set up ready check: %w", err)
-	}
-
-	fmt.Println("Starting controller manager...")
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
-		return fmt.Errorf("problem running manager: %w", err)
-	}
-
-	return nil
 }

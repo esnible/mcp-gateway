@@ -4,8 +4,10 @@ FROM node:22.12-alpine AS builder
 RUN apk add --no-cache git
 
 # Clone the MCP servers repo and extract everything server
+# Pinned to commit before SDK bump that broke Zod types (2026-01-06)
 WORKDIR /tmp
-RUN git clone --depth 1 https://github.com/modelcontextprotocol/servers.git && \
+RUN git clone https://github.com/modelcontextprotocol/servers.git && \
+    cd servers && git checkout 37b2926 && cd .. && \
     mkdir -p /app && \
     cp -r servers/src/everything/* /app/ && \
     cp servers/tsconfig.json /tsconfig.json

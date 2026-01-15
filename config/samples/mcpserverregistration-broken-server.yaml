@@ -10,7 +10,7 @@
 # kubectl apply -f config/test-servers/broken-server-httproute-ext.yaml
 
 apiVersion: mcp.kagenti.com/v1alpha1
-kind: MCPServer
+kind: MCPServerRegistration
 metadata:
   name: test-broken-server
   namespace: mcp-test

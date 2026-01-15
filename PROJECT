@@ -13,7 +13,7 @@ resources:
     namespaced: true
   controller: true
   group: mcp
-  kind: MCPServer
+  kind: MCPServerRegistration
   path: github.com/kagenti/mcp-gateway/api/v1alpha1
   version: v1alpha1
 - api:

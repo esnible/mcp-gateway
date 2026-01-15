@@ -37,7 +37,7 @@ export GITHUB_PAT="ghp_YOUR_GITHUB_TOKEN_HERE"
 
 The script will:
 - Validate your GITHUB_PAT environment variable and token format
-- Create ServiceEntry, DestinationRule, HTTPRoute, Secret, and MCPServer
+- Create ServiceEntry, DestinationRule, HTTPRoute, Secret, and MCPServerRegistration
 - Apply the AuthPolicy for OAuth + API key handling
 
 All the sample YAML files are available in `config/samples/remote-github/` for reference or customization. For a detailed explanation of each component, continue reading the manual setup steps below.
@@ -48,7 +48,7 @@ To connect to an external MCP server, you need:
 1. ServiceEntry to register the external service in Istio
 2. DestinationRule for TLS and connection policies
 3. HTTPRoute with your hostname that rewrites and routes to the external service
-4. MCPServer resource to register with MCP Gateway
+4. MCPServerRegistration resource to register with MCP Gateway
 5. Secret with authentication credentials
 6. AuthPolicy to handle authentication headers (optional, for OAuth scenarios)
 
@@ -152,16 +152,16 @@ stringData:
 EOF
 ```
 
-The `mcp.kagenti.com/credential=true` label is required. Without it the MCPServer will fail validation.
+The `mcp.kagenti.com/credential=true` label is required. Without it the MCPServerRegistration will fail validation.
 
-## Step 5: Create the MCPServer Resource
+## Step 5: Create the MCPServerRegistration Resource
 
 Create the `MCPServer` resource that registers the GitHub MCP server with the gateway:
 
 ```bash
 kubectl apply -f - <<EOF
 apiVersion: mcp.kagenti.com/v1alpha1
-kind: MCPServer
+kind: MCPServerRegistration
 metadata:
   name: github
   namespace: mcp-test
@@ -225,10 +225,10 @@ echo "GitHub tools discovered!"
 
 ## Verification
 
-Check that the MCPServer is registered:
+Check that the MCPServerRegistration is registered:
 
 ```bash
-kubectl get mcpservers -n mcp-test
+kubectl get mcpsrs -n mcp-test
 kubectl logs -n mcp-system deployment/mcp-broker-router | grep "Discovered.*tools.*github"
 ```
 

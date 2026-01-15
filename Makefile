@@ -117,9 +117,10 @@ check-crd-sync: ## Check if CRDs are synchronized between config/crd and charts/
 	fi
 
 # Install CRD
-install-crd: ## Install MCPServer and MCPVirtualServer CRDs
-	kubectl apply -f config/crd/mcp.kagenti.com_mcpservers.yaml
+install-crd: ## Install MCPServerRegistration and MCPVirtualServer CRDs
+	kubectl apply -f config/crd/mcp.kagenti.com_mcpserverregistrations.yaml
 	kubectl apply -f config/crd/mcp.kagenti.com_mcpvirtualservers.yaml
+	kubectl apply -f config/crd/mcp.kagenti.com_mcpgatewayextensions.yaml
 
 # Deploy mcp-gateway components
 deploy: install-crd ## Deploy broker/router and controller to mcp-system namespace
@@ -172,8 +173,8 @@ build-image: kind ## Build the mcp-gateway image
 	$(CONTAINER_ENGINE) build $(CONTAINER_ENGINE_EXTRA_FLAGS) -t ghcr.io/kagenti/mcp-gateway:latest .
 	$(CONTAINER_ENGINE) build $(CONTAINER_ENGINE_EXTRA_FLAGS) --file Dockerfile.controller -t ghcr.io/kagenti/mcp-controller:latest .
 
-# Deploy example MCPServer
-deploy-example: install-crd ## Deploy example MCPServer resource
+# Deploy example MCPServerRegistration
+deploy-example: install-crd ## Deploy example MCPServerRegistration resource
 	@echo "Waiting for test servers to be ready..."
 	@kubectl wait --for=condition=Available deployment -n mcp-test -l app=mcp-test-server1 --timeout=$(WAIT_TIME)
 	@kubectl wait --for=condition=Available deployment -n mcp-test -l app=mcp-test-server2 --timeout=$(WAIT_TIME)
@@ -183,10 +184,10 @@ deploy-example: install-crd ## Deploy example MCPServer resource
 	@kubectl wait --for=condition=Available deployment -n mcp-test -l app=mcp-oidc-server --timeout=$(WAIT_TIME)
 	@kubectl wait --for=condition=Available deployment -n mcp-test -l app=everything-server --timeout=$(WAIT_TIME)
 	@kubectl wait --for=condition=Available deployment -n mcp-test -l app=mcp-custom-response --timeout=$(WAIT_TIME)
-	@echo "All test servers ready, deploying MCPServer resources..."
-	kubectl apply -f config/samples/mcpserver-test-servers-base.yaml
-	kubectl apply -f config/samples/mcpserver-test-servers-extended.yaml
-	@echo "Waiting for controller to process MCPServer..."
+	@echo "All test servers ready, deploying MCPServerRegistration resources..."
+	kubectl apply -f config/samples/mcpserverregistration-test-servers-base.yaml
+	kubectl apply -f config/samples/mcpserverregistration-test-servers-extended.yaml
+	@echo "Waiting for controller to process MCPServerRegistration..."
 	@sleep 3
 	@echo "Restarting broker to ensure all connections..."
 	kubectl rollout restart deployment/mcp-broker-router -n mcp-system
@@ -247,10 +248,10 @@ deploy-conformance-server: kind-load-conformance-server ## Deploy conformance MC
 	kubectl apply -k config/test-servers/conformance-server/
 	@echo "Waiting for conformance server to be ready..."
 	@kubectl wait --for=condition=Available deployment -n mcp-test -l app=conformance-server --timeout=60s
-	@echo "Conformance server ready, deploying MCPServer resource..."
-	kubectl apply -f config/samples/mcpserver-conformance-server.yaml
-	@echo "Waiting for MCPServer to be Ready..."
-	@kubectl wait --for=condition=Ready mcpserver/conformance-server -n mcp-test --timeout=120s
+	@echo "Conformance server ready, deploying MCPServerRegistration resource..."
+	kubectl apply -f config/samples/mcpserverregistration-conformance-server.yaml
+	@echo "Waiting for MCPServerRegistration to be Ready..."
+	@kubectl wait --for=condition=Ready mcpsr/conformance-server -n mcp-test --timeout=120s
 
 # Build and push container image TODO we have this and build-image lets just use one
 docker-build: ## Build container image locally

@@ -11,10 +11,10 @@
 
 ## Overview
 
-> Note: The existing MCP controller component is expected to evolve into a full MCP operator capable of both reconciling MCPServer instances and deploying MCP Gateway instances into targeted namespaces. This design reflects a step towards that future.
+> Note: The existing MCP controller component is expected to evolve into a full MCP operator capable of both reconciling MCPServerRegistration instances and deploying MCP Gateway instances into targeted namespaces. This design reflects a step towards that future.
 
 The existing behavior of the MCP Controller, which has remained in place from the proof of concept (PoC), is to:
-1. Discover all MCPServer resources across the cluster
+1. Discover all MCPServerRegistration resources across the cluster
 2. Construct a unified MCP configuration from them
 3. Create that configuration in a known secret in the `mcp-system` namespace
 4. Mount this secret into the broker and router components
@@ -25,13 +25,13 @@ The changes proposed here focus on the MCP controller and how it manages and con
 
 ## Proposal
 
-To achieve isolated deployments, the existing cluster-scoped MCP controller must be informed of which MCPServers are within scope for a given MCP Gateway instance and construct a restricted configuration based on this information.
+To achieve isolated deployments, the existing cluster-scoped MCP controller must be informed of which MCPServerRegistrations are within scope for a given MCP Gateway instance and construct a restricted configuration based on this information.
 
 ### Introduce MCPGatewayExtension CRD
 
 To support this deployment model and inform the controller of the expected state, we will add a new CRD: `MCPGatewayExtension`. This CRD can be created in any namespace where an MCP Gateway instance is deployed (MCP Gateway instances are currently limited to 1 per namespace). In this proposal, this resource will control which Gateways are in scope for a given MCP Gateway instance. In the future this could be expanded to also control the installation of the MCP Gateway instance.
 
-This resource signals to the controller that any MCP configuration built from MCPServers targeting HTTPRoutes attached to that gateway should be placed in the well-known secret within the same namespace as the MCPGatewayExtension resource.
+This resource signals to the controller that any MCP configuration built from MCPServerRegistrations targeting HTTPRoutes attached to that gateway should be placed in the well-known secret within the same namespace as the MCPGatewayExtension resource.
 
 The MCPGatewayExtension can target Gateway API `Gateway` resources in any namespace. To ensure cross-namespace targeting is authorized, the requirement of a [ReferenceGrant](https://gateway-api.sigs.k8s.io/api-types/referencegrant/) in the targeted gateway's namespace will be enforced unless the MCPGatewayExtension resource is in the same namespace as the Gateway (see diagram below).
 
@@ -76,13 +76,13 @@ The MCP Controller will reconcile this new resource in a dedicated MCPGatewayExt
 2. Update the MCPGatewayExtension status accordingly (without revealing whether the targeted Gateway resource exists)
 3. Watch for deletion or changes to ReferenceGrants and trigger reconciliation of affected MCPGatewayExtension resources
 
-### MCPServer Controller Behavior
+### MCPServerRegistration Controller Behavior
 
-When the existing MCPServer Controller finds an MCPServer resource, it will:
+When the existing MCPServerRegistration Controller finds an MCPServerRegistration resource, it will:
 
 1. Look up the targeted HTTPRoute and its parent gateways
 2. Look for either a ReferenceGrant in that parent's namespace or an MCPGatewayExtension resource in the same namespace
-3. If no valid objects are found, update the MCPServer with a status of `NotReady` and reason `NoValidMCPGatewayExtension`. The configuration for that server will not be added to any MCP Gateway deployment.
+3. If no valid objects are found, update the MCPServerRegistration with a status of `NotReady` and reason `NoValidMCPGatewayExtension`. The configuration for that server will not be added to any MCP Gateway deployment.
 4. For each valid configuration found, add the MCP configuration secret to the same namespace as the MCPGatewayExtension resource (either via ReferenceGrant or by being co-located with the Gateway).
 
 
@@ -104,7 +104,7 @@ In this initial phase, users will use the Helm charts to deploy the broker and r
 
 - EnvoyFilter brings traffic to the correct MCP Gateway
 - MCPGatewayExtension ensures that MCP Gateway receives the correct MCPConfig
-- MCPServer indicates MCP configuration should be generated for this HTTPRoute
+- MCPServerRegistration indicates MCP configuration should be generated for this HTTPRoute
 
 ### Targeting Multiple Gateways with a Single MCPGatewayExtension
 

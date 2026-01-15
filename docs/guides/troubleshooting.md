@@ -34,7 +34,7 @@ kubectl cluster-info
 kubectl get crd gateways.gateway.networking.k8s.io httproutes.gateway.networking.k8s.io
 
 # Check for resource conflicts
-kubectl get mcpserver -A
+kubectl get mcpsr -A
 kubectl get deployment -n mcp-system
 ```
 
@@ -132,8 +132,8 @@ kubectl exec -n gateway-system deploy/mcp-gateway-istio -- curl localhost:15000/
 **Symptom**: Tools from MCP server don't appear in `tools/list`
 
 ```bash
-# Check MCPServer resource status
-kubectl get mcpserver -A
+# Check MCPServerRegistration resource status
+kubectl get mcpsr -A
 kubectl describe mcpserver <server-name> -n <namespace>
 
 # Check controller logs
@@ -144,7 +144,7 @@ kubectl logs -n mcp-system -l app=mcp-broker-router | grep "Discovered tools"
 ```
 
 **Solutions**:
-- Verify MCPServer `targetRef` points to correct HTTPRoute name and namespace
+- Verify MCPServerRegistration `targetRef` points to correct HTTPRoute name and namespace
 - Ensure HTTPRoute has `mcp-server: 'true'` label
 - Check that backend MCP server is running: `kubectl get pods -n <mcp-server-namespace>`
 - Verify backend service exists: `kubectl get svc -n <namespace> <service-name>`
@@ -152,7 +152,7 @@ kubectl logs -n mcp-system -l app=mcp-broker-router | grep "Discovered tools"
 
 ### Tools Not Appearing
 
-**Symptom**: MCPServer discovered but tools missing
+**Symptom**: MCPServerRegistration discovered but tools missing
 
 ```bash
 # Test backend server directly
@@ -171,24 +171,24 @@ kubectl logs -n mcp-system -l app=mcp-broker-router
 - Verify backend MCP server implements `tools/list` method correctly
 - Check backend server logs for errors
 - Ensure backend server returns valid MCP protocol responses
-- Verify `toolPrefix` in MCPServer spec is valid (no spaces or special chars)
+- Verify `toolPrefix` in MCPServerRegistration spec is valid (no spaces or special chars)
 
 ### Tool Prefix Not Applied
 
 **Symptom**: Tools appear without the configured prefix
 
 ```bash
-# Check MCPServer configuration
-kubectl get mcpserver <server-name> -n <namespace> -o yaml | grep toolPrefix
+# Check MCPServerRegistration configuration
+kubectl get mcpsr <server-name> -n <namespace> -o yaml | grep toolPrefix
 
 # Check controller logs
 kubectl logs -n mcp-system deployment/mcp-gateway-controller | grep prefix
 ```
 
 **Solutions**:
-- Ensure `toolPrefix` is set in MCPServer spec
+- Ensure `toolPrefix` is set in MCPServerRegistration spec
 - Verify no typos in `toolPrefix` field name
-- Restart broker after MCPServer changes: `kubectl rollout restart deployment/mcp-gateway-broker-router -n mcp-system`
+- Restart broker after MCPServerRegistration changes: `kubectl rollout restart deployment/mcp-gateway-broker-router -n mcp-system`
 
 ## External MCP Server Issues
 
@@ -233,13 +233,13 @@ kubectl get secret <secret-name> -n <namespace> --show-labels
 # Verify secret contents
 kubectl get secret <secret-name> -n <namespace> -o yaml
 
-# Check MCPServer credentialRef
-kubectl get mcpserver <name> -n <namespace> -o yaml | grep -A 3 credentialRef
+# Check MCPServerRegistration credentialRef
+kubectl get mcpsr <name> -n <namespace> -o yaml | grep -A 3 credentialRef
 ```
 
 **Solutions**:
 - Ensure secret has label `mcp.kagenti.com/credential: "true"`
-- Verify secret data key matches `credentialRef.key` in MCPServer
+- Verify secret data key matches `credentialRef.key` in MCPServerRegistration
 - Check credential format (e.g., "Bearer TOKEN" for GitHub)
 - Verify credential has necessary permissions for the external service
 - Check broker logs for credential errors: `kubectl logs -n mcp-system deployment/mcp-gateway-broker-router | grep -i auth`
@@ -466,7 +466,7 @@ kubectl get pods -n mcp-system
 kubectl get deploy -n mcp-system
 
 # Check resource status
-kubectl get mcpserver -A
+kubectl get mcpsr -A
 kubectl get mcpvirtualserver -A
 kubectl get authpolicy -A
 
@@ -491,7 +491,7 @@ If you continue to experience issues:
    ```bash
    kubectl logs -n mcp-system -l app=mcp-controller > controller.log
    kubectl logs -n mcp-system -l app=mcp-broker-router > broker.log
-   kubectl get mcpserver -A -o yaml > mcpservers.yaml
+   kubectl get mcpsr -A -o yaml > mcpservers.yaml
    kubectl get httproute -A -o yaml > httproutes.yaml
    kubectl get gateway -A -o yaml > gateways.yaml
    ```

@@ -1,6 +1,6 @@
 ---
 apiVersion: mcp.kagenti.com/v1alpha1
-kind: MCPServer
+kind: MCPServerRegistration
 metadata:
   name: conformance-server
   namespace: mcp-test

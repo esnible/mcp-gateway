@@ -3,12 +3,12 @@
 
 ### [Happy] Test registering multiple MCP servers with the gateway
 
-- When a developer creates multiple MCPServer resources with their corresponding HTTPRoutes, the gateway should register all servers and make their tools available. Each server's tools should be prefixed with the server's toolPrefix to avoid naming conflicts. A tools/list request should return tools from all registered servers.
+- When a developer creates multiple MCPServerRegistration resources with their corresponding HTTPRoutes, the gateway should register all servers and make their tools available. Each server's tools should be prefixed with the server's toolPrefix to avoid naming conflicts. A tools/list request should return tools from all registered servers.
 
 
 ### [Happy] Test unregistering MCP servers from the gateway
 
-- When an MCPServer resource is deleted from the cluster, the gateway should remove the server and its tools should no longer be available. A subsequent tools/list request should not include any tools with that server's prefix.
+- When an MCPServerRegistration resource is deleted from the cluster, the gateway should remove the server and its tools should no longer be available. A subsequent tools/list request should not include any tools with that server's prefix.
 
 
 ### [Happy] Test invoking tools through the gateway
@@ -18,7 +18,7 @@
 
 ### [Happy] Test MCP server registration with credentials
 
-- When an MCPServer resource references a credential secret, the gateway should use those credentials to authenticate with the backend MCP server. If the credentials are invalid, the server should not be registered and its tools should not be available. When the credentials are updated to valid values, the server should become registered and its tools should appear in the tools/list.
+- When an MCPServerRegistration resource references a credential secret, the gateway should use those credentials to authenticate with the backend MCP server. If the credentials are invalid, the server should not be registered and its tools should not be available. When the credentials are updated to valid values, the server should become registered and its tools should appear in the tools/list.
 
 
 ### [Happy] Test backend MCP session reuse
@@ -38,7 +38,7 @@
 
 ### [Happy] Test notifications are received when a notifications/tools/list_changed notification is sent
 
-- When an MCPServer is registered with the MCP Gateway, a `notifications/tools/list_changed` should be sent to any clients connected to the MCP Gateway. This notification should work for a single connected client as well as multiple connected clients. They should all receive the same notification at least once. The clients should receive these notifications within one minute of the MCPServer having reached a ready state.
+- When an MCPServerRegistration is registered with the MCP Gateway, a `notifications/tools/list_changed` should be sent to any clients connected to the MCP Gateway. This notification should work for a single connected client as well as multiple connected clients. They should all receive the same notification at least once. The clients should receive these notifications within one minute of the MCPServerRegistration having reached a ready state.
 
 - When a registered backend MCP Server, emits a `notifications/tools/list_changed` a notification should be received by the connected clients. When the clients receive this notification they should get a changed tools/list. 
 
@@ -48,9 +48,9 @@
 
 - If a client is closed and disconnects, if it connects to the gateway and initializes it should receive a new mcp-session-id
 
-### [Happy] Test Hostname backendRef registers MCPServer
+### [Happy] Test Hostname backendRef registers MCPServerRegistration
 
-- When an HTTPRoute uses a Hostname backendRef (`kind: Hostname, group: networking.istio.io`) with a URLRewrite filter, and an MCPServer references that HTTPRoute, the controller should correctly handle the external endpoint configuration and the MCPServer should become ready. Tool discovery is not tested as it requires actual HTTPS connectivity to external services.
+- When an HTTPRoute uses a Hostname backendRef (`kind: Hostname, group: networking.istio.io`) with a URLRewrite filter, and an MCPServerRegistration references that HTTPRoute, the controller should correctly handle the external endpoint configuration and the MCPServerRegistration should become ready. Tool discovery is not tested as it requires actual HTTPS connectivity to external services.
 
 ### [Happy] When a tools has annotations these should be visible to the client
 
@@ -62,11 +62,11 @@
 
 ### [Happy] MCP Server status
 
-- When a backend MCPServer is added but the backend MCP is invalid because it doesn't meet the protocol version the status of the MCPServer resource should report the reason for the MCPSever being invalid
+- When a backend MCPServerRegistration is added but the backend MCP is invalid because it doesn't meet the protocol version the status of the MCPServerRegistration resource should report the reason for the MCPSever being invalid
 
-- When a backend MCPServer is added but the backend MCP is invalid because it has conflicting tools due to tool name overlap with another server that has been added, the status of the MCPServer resource should report the reason for the MCPSever being invalid
+- When a backend MCPServerRegistration is added but the backend MCP is invalid because it has conflicting tools due to tool name overlap with another server that has been added, the status of the MCPServerRegistration resource should report the reason for the MCPSever being invalid
 
-- When a backend MCPServer is added but the backend MCP is invalid because the broker cannot connect to the the backend MCP server, the MCPServer resource should report the reason for the MCPSever being invalid
+- When a backend MCPServerRegistration is added but the backend MCP is invalid because the broker cannot connect to the the backend MCP server, the MCPServerRegistration resource should report the reason for the MCPSever being invalid
 
 ### [Happy] Multiple MCP Servers without prefix
 

@@ -16,19 +16,19 @@ See the [installation guide](./how-to-install-and-configure.md) for setup instru
 
 Before observing the system in action, let's understand how it's configured.
 
-### MCPServer Resources
+### MCPServerRegistration Resources
 
 MCPServer custom resources define backend servers:
 
 ```bash
-# View all MCPServer resources
-kubectl get mcpserver -A
+# View all MCPServerRegistration resources
+kubectl get mcpsr -A
 
-# Describe a specific MCPServer
+# Describe a specific MCPServerRegistration
 kubectl describe mcpserver api-key-server -n mcp-test
 ```
 
-**Example MCPServer spec:**
+**Example MCPServerRegistration spec:**
 ```yaml
 spec:
   toolPrefix: test1_
@@ -230,7 +230,7 @@ kubectl set env deployment/mcp-broker-router LOG_LEVEL=-4 -n mcp-system
 ### MCP Controller Logs: Dynamic Discovery
 
 The controller is responsible for:
-- Watching MCPServer custom resources
+- Watching MCPServerRegistration custom resources
 - Resolving HTTPRoute references to backend URLs
 - Updating ConfigMap with server configuration
 - Triggering broker/router reloads
@@ -246,7 +246,7 @@ kubectl logs -f deployment/mcp-controller -n mcp-system
 
 | Pattern | Meaning |
 |---------|---------|
-| `Reconciling MCPServer` | Processing MCPServer resource change |
+| `Reconciling MCPServerRegistration` | Processing MCPServerRegistration resource change |
 | `Updated HTTPRoute status` | HTTPRoute discovered and status updated |
 | `Config push completed` | Configuration pushed to broker/router |
 | `Successfully regenerated aggregated configuration` | Configuration successfully updated with server count |
@@ -350,9 +350,9 @@ data: {"jsonrpc":"2.0","id":3,"result":{"content":[{"type":"text","text":"Hi Pat
 kubectl get configmap mcp-gateway-config -n mcp-system -o yaml
 ```
 
-2. **Check MCPServer status:**
+2. **Check MCPServerRegistration status:**
 ```bash
-kubectl get mcpserver -A
+kubectl get mcpsr -A
 kubectl describe mcpserver <name> -n mcp-test
 ```
 

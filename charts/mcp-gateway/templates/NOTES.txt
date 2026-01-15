@@ -63,10 +63,10 @@
             port: 8080
   EOF
 
-5. Connect MCP servers by creating MCPServer resources:
+5. Connect MCP servers by creating MCPServerRegistration resources:
   kubectl apply -f - <<EOF
   apiVersion: mcp.kagenti.com/v1alpha1
-  kind: MCPServer
+  kind: MCPServerRegistration
   metadata:
     name: my-mcp-server
     namespace: {{ .Release.Namespace }}

@@ -64,14 +64,14 @@ kubectl get namespace mcp-system
 kubectl get deployments -n mcp-system
 
 # check CRDs
-kubectl get crd mcpservers.mcp.kagenti.com
+kubectl get crd mcpserverregistrations.mcp.kagenti.com
 ```
 
 ## Next Steps
 
 1. create a gateway resource that the HTTPRoute can attach to
 2. deploy your MCP servers
-3. create MCPServer resources to register them
+3. create MCPServerRegistration resources to register them
 4. (optional) configure authentication via AuthPolicy
 
 ## Example Gateway
@@ -93,11 +93,11 @@ spec:
         from: All
 ```
 
-## Example MCPServer
+## Example MCPServerRegistration
 
 ```yaml
 apiVersion: mcp.kagenti.com/v1alpha1
-kind: MCPServer
+kind: MCPServerRegistration
 metadata:
   name: my-mcp-server
   namespace: mcp-test

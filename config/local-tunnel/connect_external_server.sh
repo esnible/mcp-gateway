@@ -117,7 +117,7 @@ spec:
 
 ---
 apiVersion: mcp.kagenti.com/v1alpha1
-kind: MCPServer
+kind: MCPServerRegistration
 metadata:
   name: local-dev-server
   namespace: mcp-system

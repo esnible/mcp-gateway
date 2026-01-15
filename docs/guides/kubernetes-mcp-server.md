@@ -135,7 +135,7 @@ spec:
   resolution: DNS
 ---
 apiVersion: mcp.kagenti.com/v1alpha1
-kind: MCPServer
+kind: MCPServerRegistration
 metadata:
   name: kubernetes-mcp-server
 spec:

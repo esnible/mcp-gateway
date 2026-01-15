@@ -17,10 +17,10 @@ metadata:
   name: mcp-controller
 rules:
   - apiGroups: ["mcp.kagenti.com"]
-    resources: ["mcpservers"]
+    resources: ["mcpserverregistrations"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   - apiGroups: ["mcp.kagenti.com"]
-    resources: ["mcpservers/status"]
+    resources: ["mcpserverregistrations/status"]
     verbs: ["get", "update", "patch"]
   - apiGroups: ["mcp.kagenti.com"]
     resources: ["mcpvirtualservers"]

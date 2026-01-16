@@ -1,6 +1,6 @@
 ---
 apiVersion: mcp.kagenti.com/v1alpha1
-kind: MCPServer
+kind: MCPServerRegistration
 metadata:
   name: test-server3
   namespace: mcp-test
@@ -15,7 +15,7 @@ spec:
     name: mcp-server3-route
 ---
 apiVersion: mcp.kagenti.com/v1alpha1
-kind: MCPServer
+kind: MCPServerRegistration
 metadata:
   name: api-key-server
   namespace: mcp-test
@@ -33,7 +33,7 @@ spec:
     key: token
 ---
 apiVersion: mcp.kagenti.com/v1alpha1
-kind: MCPServer
+kind: MCPServerRegistration
 metadata:
   name: custom-path-server
   namespace: mcp-test
@@ -50,7 +50,7 @@ spec:
     name: mcp-custom-path-server
 ---
 apiVersion: mcp.kagenti.com/v1alpha1
-kind: MCPServer
+kind: MCPServerRegistration
 metadata:
   name: oidc-server
   namespace: mcp-test
@@ -68,7 +68,7 @@ spec:
     key: admin_token
 ---
 apiVersion: mcp.kagenti.com/v1alpha1
-kind: MCPServer
+kind: MCPServerRegistration
 metadata:
   name: everything-server
   namespace: mcp-test
@@ -83,7 +83,7 @@ spec:
     name: everything-server-route
 ---
 apiVersion: mcp.kagenti.com/v1alpha1
-kind: MCPServer
+kind: MCPServerRegistration
 metadata:
   name: custom-response
   namespace: mcp-test

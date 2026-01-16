@@ -37,6 +37,6 @@ kubectl logs -n mcp-system deployment/mcp-broker-router
 # Test server status
 kubectl get pods -n mcp-test
 
-# MCPServer status
-kubectl get mcpservers -A
+# MCPServerRegistration status
+kubectl get mcpsrs -A
 ```

@@ -84,9 +84,9 @@ var _ = BeforeSuite(func() {
 	err = k8sClient.Get(ctx, client.ObjectKey{Name: SystemNamespace}, systemNs)
 	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("System namespace %s must exist", SystemNamespace))
 
-	By("cleaning up all existing mcpservers")
+	By("cleaning up all existing mcpserverregistrations")
 
-	err = k8sClient.DeleteAllOf(ctx, &mcpv1alpha1.MCPServer{}, client.InNamespace("mcp-test"), &client.DeleteAllOfOptions{ListOptions: client.ListOptions{
+	err = k8sClient.DeleteAllOf(ctx, &mcpv1alpha1.MCPServerRegistration{}, client.InNamespace("mcp-test"), &client.DeleteAllOfOptions{ListOptions: client.ListOptions{
 		LabelSelector: labels.Everything(),
 	}})
 	Expect(err).ToNot(HaveOccurred(), "all existing MCPSevers should be removed before the e2e test suite")

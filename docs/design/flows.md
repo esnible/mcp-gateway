@@ -133,7 +133,7 @@ sequenceDiagram
         WASM->>Authorino: Apply Auth
         Authorino->>WASM: OK
         Gateway->>MCPServer: POST /mcp tools/call
-        MCPServer->>MCPClient: tools/call response
+        MCPServerRegistration->>MCPClient: tools/call response
 ```        
 
 ## MCP Notifications

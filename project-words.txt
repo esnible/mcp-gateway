@@ -39,6 +39,10 @@ mcpclient
 mcps
 mcpserver
 mcpservers
+mcpserverregistration
+mcpserverregistrations
+mcpsr
+mcpsrs
 mcpsession
 mcpsessionid
 mcpgateway

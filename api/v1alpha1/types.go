@@ -6,7 +6,7 @@ import (
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:scope=Namespaced,shortName=mcpsrv
+// +kubebuilder:resource:scope=Namespaced,shortName=mcpsr
 // +kubebuilder:printcolumn:name="Prefix",type="string",JSONPath=".spec.toolPrefix",description="Tool prefix for federation"
 // +kubebuilder:printcolumn:name="Target",type="string",JSONPath=".spec.targetRef.name",description="Target HTTPRoute"
 // +kubebuilder:printcolumn:name="Path",type="string",JSONPath=".spec.path",description="MCP endpoint path"
@@ -15,20 +15,20 @@ import (
 // +kubebuilder:printcolumn:name="Credentials",type="string",JSONPath=".spec.credentialRef.name"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
-// MCPServer defines a collection of MCP (Model Context Protocol) servers to be aggregated by the gateway.
+// MCPServerRegistration defines a collection of MCP (Model Context Protocol) servers to be aggregated by the gateway.
 // It enables discovery and federation of tools from multiple backend MCP servers through HTTPRoute references,
 // providing a declarative way to configure which MCP servers should be accessible through the gateway.
-type MCPServer struct {
+type MCPServerRegistration struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   MCPServerSpec   `json:"spec,omitempty"`
-	Status MCPServerStatus `json:"status,omitempty"`
+	Spec   MCPServerRegistrationSpec   `json:"spec,omitempty"`
+	Status MCPServerRegistrationStatus `json:"status,omitempty"`
 }
 
-// MCPServerSpec defines the desired state of MCPServer.
+// MCPServerRegistrationSpec defines the desired state of MCPServerRegistration.
 // It specifies which HTTPRoutes point to MCP servers and how their tools should be federated.
-type MCPServerSpec struct {
+type MCPServerRegistrationSpec struct {
 	// TargetRef specifies an HTTPRoute that points to a backend MCP server.
 	// The referenced HTTPRoute should have backend services that implement the MCP protocol.
 	// The controller will discover the backend service from this HTTPRoute and configure
@@ -91,26 +91,26 @@ type SecretReference struct {
 	Key string `json:"key,omitempty"`
 }
 
-// MCPServerStatus represents the observed state of the MCPServer resource.
+// MCPServerRegistrationStatus represents the observed state of the MCPServerRegistration resource.
 // It contains conditions that indicate whether the referenced servers have been
 // successfully discovered and are ready for use.
-type MCPServerStatus struct {
-	// Conditions represent the latest available observations of the MCPServer's state.
+type MCPServerRegistrationStatus struct {
+	// Conditions represent the latest available observations of the MCPServerRegistration's state.
 	// Common conditions include 'Ready' to indicate if all referenced servers are accessible.
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
-	// DiscoveredTools is the number of tools discovered from this MCPServer
+	// DiscoveredTools is the number of tools discovered from this MCPServerRegistration
 	// +optional
 	DiscoveredTools int `json:"discoveredTools,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
-// MCPServerList contains a list of MCPServer
-type MCPServerList struct {
+// MCPServerRegistrationList contains a list of MCPServerRegistration
+type MCPServerRegistrationList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []MCPServer `json:"items"`
+	Items           []MCPServerRegistration `json:"items"`
 }
 
 // +kubebuilder:object:root=true
@@ -151,5 +151,5 @@ type MCPVirtualServerList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&MCPServer{}, &MCPServerList{}, &MCPVirtualServer{}, &MCPVirtualServerList{})
+	SchemeBuilder.Register(&MCPServerRegistration{}, &MCPServerRegistrationList{}, &MCPVirtualServer{}, &MCPVirtualServerList{})
 }

@@ -4,16 +4,16 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.20.0
-  name: mcpservers.mcp.kagenti.com
+  name: mcpserverregistrations.mcp.kagenti.com
 spec:
   group: mcp.kagenti.com
   names:
-    kind: MCPServer
-    listKind: MCPServerList
-    plural: mcpservers
+    kind: MCPServerRegistration
+    listKind: MCPServerRegistrationList
+    plural: mcpserverregistrations
     shortNames:
-    - mcpsrv
-    singular: mcpserver
+    - mcpsr
+    singular: mcpserverregistration
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
@@ -47,7 +47,7 @@ spec:
     schema:
       openAPIV3Schema:
         description: |-
-          MCPServer defines a collection of MCP (Model Context Protocol) servers to be aggregated by the gateway.
+          MCPServerRegistration defines a collection of MCP (Model Context Protocol) servers to be aggregated by the gateway.
           It enables discovery and federation of tools from multiple backend MCP servers through HTTPRoute references,
           providing a declarative way to configure which MCP servers should be accessible through the gateway.
         properties:
@@ -70,7 +70,7 @@ spec:
             type: object
           spec:
             description: |-
-              MCPServerSpec defines the desired state of MCPServer.
+              MCPServerRegistrationSpec defines the desired state of MCPServerRegistration.
               It specifies which HTTPRoutes point to MCP servers and how their tools should be federated.
             properties:
               credentialRef:
@@ -145,13 +145,13 @@ spec:
             type: object
           status:
             description: |-
-              MCPServerStatus represents the observed state of the MCPServer resource.
+              MCPServerRegistrationStatus represents the observed state of the MCPServerRegistration resource.
               It contains conditions that indicate whether the referenced servers have been
               successfully discovered and are ready for use.
             properties:
               conditions:
                 description: |-
-                  Conditions represent the latest available observations of the MCPServer's state.
+                  Conditions represent the latest available observations of the MCPServerRegistration's state.
                   Common conditions include 'Ready' to indicate if all referenced servers are accessible.
                 items:
                   description: Condition contains details for one aspect of the current
@@ -210,7 +210,7 @@ spec:
                 type: array
               discoveredTools:
                 description: DiscoveredTools is the number of tools discovered from
-                  this MCPServer
+                  this MCPServerRegistration
                 type: integer
             type: object
         type: object

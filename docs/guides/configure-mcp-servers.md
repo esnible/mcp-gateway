@@ -12,7 +12,7 @@ This guide covers configuring MCP servers to be discovered and routed by MCP Gat
 
 To connect an MCP server to MCP Gateway, you need:
 1. An HTTPRoute that routes to your MCP server
-2. An MCPServer resource that references the HTTPRoute
+2. An MCPServerRegistration resource that references the HTTPRoute
 
 ## Step 1: Create HTTPRoute for Your MCP Server
 
@@ -44,14 +44,14 @@ spec:
 EOF
 ```
 
-## Step 2: Create MCPServer Resource
+## Step 2: Create MCPServerRegistration Resource
 
-Create an MCPServer resource that references the HTTPRoute:
+Create an MCPServerRegistration resource that references the HTTPRoute:
 
 ```bash
 kubectl apply -f - <<EOF
 apiVersion: mcp.kagenti.com/v1alpha1
-kind: MCPServer
+kind: MCPServerRegistration
 metadata:
   name: my-mcp-server
   namespace: mcp-test
@@ -67,11 +67,11 @@ EOF
 
 ## Step 3: Verify Configuration
 
-Check that the MCPServer was created and discovered:
+Check that the MCPServerRegistration was created and discovered:
 
 ```bash
-# Check MCPServer status
-kubectl get mcpserver -A
+# Check MCPServerRegistration status
+kubectl get mcpsr -A
 
 # Check controller logs
 kubectl logs -n mcp-system deployment/mcp-gateway-controller

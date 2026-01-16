@@ -8,8 +8,8 @@ This directory contains the Helm chart for deploying MCP Gateway to Kubernetes.
 
 The MCP Gateway Helm chart deploys:
 - **MCP Broker/Router**: Aggregates and routes MCP (Model Context Protocol) requests
-- **MCP Controller**: Manages MCPServer and MCPVirtualServer custom resources
-- **Custom Resource Definitions (CRDs)**: MCPServer and MCPVirtualServer
+- **MCP Controller**: Manages MCPServerRegistration and MCPVirtualServer custom resources
+- **Custom Resource Definitions (CRDs)**: MCPServerRegistration and MCPVirtualServer
 - **RBAC**: Service accounts, roles, and bindings for secure operation
 - **EnvoyFilter**: Configures Istio with the MCP Router ext-proc filter (enabled by default)
 
@@ -39,7 +39,7 @@ helm install mcp-gateway ./charts/mcp-gateway --create-namespace --namespace mcp
 
 - Configuring your Gateway with an MCP listener  
 - Creating an HTTPRoute to route traffic to the broker
-- Connecting your MCP servers using MCPServer resources
+- Connecting your MCP servers using MCPServerRegistration resources
 - Accessing the gateway at your configured hostname
 
 ## Configuration
@@ -59,11 +59,11 @@ The chart uses sensible defaults and requires minimal configuration. The configu
 
 ### Creating MCP Servers
 
-After installation, create MCPServer resources to connect MCP servers:
+After installation, create MCPServerRegistration resources to connect MCP servers:
 
 ```yaml
 apiVersion: mcp.kagenti.com/v1alpha1
-kind: MCPServer
+kind: MCPServerRegistration
 metadata:
   name: my-mcp-server
 spec:
@@ -79,7 +79,7 @@ spec:
 ```
 
 You'll find example MCP servers in https://github.com/Kuadrant/mcp-gateway/tree/main/config/test-servers
-along with the corresponding MCPServer resources in https://github.com/Kuadrant/mcp-gateway/blob/main/config/samples/mcpserver-test-servers-base.yaml and https://github.com/Kuadrant/mcp-gateway/blob/main/config/samples/mcpserver-test-servers-extended.yaml
+along with the corresponding MCPServerRegistration resources in https://github.com/Kuadrant/mcp-gateway/blob/main/config/samples/mcpserver-test-servers-base.yaml and https://github.com/Kuadrant/mcp-gateway/blob/main/config/samples/mcpserver-test-servers-extended.yaml
 
 ### Accessing the Gateway
 
@@ -114,7 +114,7 @@ helm uninstall mcp-gateway
 
 # Note: CRDs are not automatically removed
 # Remove them manually if needed:
-kubectl delete crd mcpservers.mcp.kagenti.com
+kubectl delete crd mcpserverregistrations.mcp.kagenti.com
 kubectl delete crd mcpvirtualservers.mcp.kagenti.com
 ```
 

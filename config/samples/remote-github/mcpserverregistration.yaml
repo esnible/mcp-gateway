@@ -1,5 +1,5 @@
 apiVersion: mcp.kagenti.com/v1alpha1
-kind: MCPServer
+kind: MCPServerRegistration
 metadata:
   name: github
   namespace: mcp-test

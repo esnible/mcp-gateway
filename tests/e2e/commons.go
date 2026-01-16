@@ -95,14 +95,14 @@ func (b *MCPServerBuilder) WithCredentialKey(key string) *MCPServerBuilder {
 }
 
 // Build creates the MCPServer resource
-func (b *MCPServerBuilder) Build() *mcpv1alpha1.MCPServer {
-	mcpServ := &mcpv1alpha1.MCPServer{
+func (b *MCPServerBuilder) Build() *mcpv1alpha1.MCPServerRegistration {
+	mcpServ := &mcpv1alpha1.MCPServerRegistration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      b.name,
 			Namespace: b.namespace,
 			Labels:    map[string]string{"e2e": "test"},
 		},
-		Spec: mcpv1alpha1.MCPServerSpec{
+		Spec: mcpv1alpha1.MCPServerRegistrationSpec{
 			ToolPrefix: b.prefix,
 			TargetRef: mcpv1alpha1.TargetReference{
 				Group: "gateway.networking.k8s.io",
@@ -243,9 +243,9 @@ func MCPServerName(route *gatewayapiv1.HTTPRoute) string {
 	return fmt.Sprintf("%s/%s", route.Namespace, route.Name)
 }
 
-// VerifyMCPServerReady checks if the MCPServer has Ready condition. Once ready it should be able to be invoked
-func VerifyMCPServerReady(ctx context.Context, k8sClient client.Client, name, namespace string) error {
-	mcpServer := &mcpv1alpha1.MCPServer{}
+// VerifyMCPServerRegistrationReady checks if the MCPServer has Ready condition. Once ready it should be able to be invoked
+func VerifyMCPServerRegistrationReady(ctx context.Context, k8sClient client.Client, name, namespace string) error {
+	mcpServer := &mcpv1alpha1.MCPServerRegistration{}
 
 	err := k8sClient.Get(ctx, types.NamespacedName{
 		Name:      name,
@@ -265,9 +265,9 @@ func VerifyMCPServerReady(ctx context.Context, k8sClient client.Client, name, na
 
 }
 
-// VerifyMCPVerifyMCPServerReadyWithToolsCountServerReady checks if the MCPServer has Ready condition. Once ready it should be able to be invoked
-func VerifyMCPServerReadyWithToolsCount(ctx context.Context, k8sClient client.Client, name, namespace string, toolsCount int) error {
-	mcpServer := &mcpv1alpha1.MCPServer{}
+// VerifyMCPVerifyMCPServerRegistrationReadyWithToolsCountServerReady checks if the MCPServer has Ready condition. Once ready it should be able to be invoked
+func VerifyMCPServerRegistrationReadyWithToolsCount(ctx context.Context, k8sClient client.Client, name, namespace string, toolsCount int) error {
+	mcpServer := &mcpv1alpha1.MCPServerRegistration{}
 
 	err := k8sClient.Get(ctx, types.NamespacedName{
 		Name:      name,
@@ -291,9 +291,9 @@ func VerifyMCPServerReadyWithToolsCount(ctx context.Context, k8sClient client.Cl
 
 }
 
-// GetMCPServerStatusMessage returns the Ready condition message for an MCPServer
-func GetMCPServerStatusMessage(ctx context.Context, k8sClient client.Client, name, namespace string) (string, error) {
-	mcpServer := &mcpv1alpha1.MCPServer{}
+// GetMCPServerRegistrationStatusMessage returns the Ready condition message for an MCPServer
+func GetMCPServerRegistrationStatusMessage(ctx context.Context, k8sClient client.Client, name, namespace string) (string, error) {
+	mcpServer := &mcpv1alpha1.MCPServerRegistration{}
 
 	err := k8sClient.Get(ctx, types.NamespacedName{
 		Name:      name,
@@ -312,9 +312,9 @@ func GetMCPServerStatusMessage(ctx context.Context, k8sClient client.Client, nam
 	return "", fmt.Errorf("mcpserver %s has no Ready condition", name)
 }
 
-// VerifyMCPServerNotReadyWithReason checks if MCPServer has Ready=False with message containing reason
-func VerifyMCPServerNotReadyWithReason(ctx context.Context, k8sClient client.Client, name, namespace, expectedReason string) error {
-	mcpServer := &mcpv1alpha1.MCPServer{}
+// VerifyMCPServerRegistrationNotReadyWithReason checks if MCPServer has Ready=False with message containing reason
+func VerifyMCPServerRegistrationNotReadyWithReason(ctx context.Context, k8sClient client.Client, name, namespace, expectedReason string) error {
+	mcpServer := &mcpv1alpha1.MCPServerRegistration{}
 
 	err := k8sClient.Get(ctx, types.NamespacedName{
 		Name:      name,
@@ -340,8 +340,8 @@ func VerifyMCPServerNotReadyWithReason(ctx context.Context, k8sClient client.Cli
 }
 
 // verifies controller processed the MCPServer by checking it has a status condition
-func VerifyMCPServerHasCondition(ctx context.Context, k8sClient client.Client, name, namespace string) error {
-	mcpServer := &mcpv1alpha1.MCPServer{}
+func VerifyMCPServerRegistrationHasCondition(ctx context.Context, k8sClient client.Client, name, namespace string) error {
+	mcpServer := &mcpv1alpha1.MCPServerRegistration{}
 	err := k8sClient.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, mcpServer)
 	if err != nil {
 		return fmt.Errorf("failed to get mcpserver %s: %w", name, err)
@@ -352,29 +352,29 @@ func VerifyMCPServerHasCondition(ctx context.Context, k8sClient client.Client, n
 	return nil
 }
 
-// MCPServerRegistrationBuilder builds and registers MCP server resources
-type MCPServerRegistrationBuilder struct {
+// MCPServerResourcesBuilder builds and registers MCP server resources
+type MCPServerResourcesBuilder struct {
 	k8sClient     client.Client
 	credential    *corev1.Secret
 	credentialKey string
 	httpRoute     *gatewayapiv1.HTTPRoute
-	mcpServer     *mcpv1alpha1.MCPServer
+	mcpServer     *mcpv1alpha1.MCPServerRegistration
 }
 
-// NewMCPServerRegistrationWithDefaults creates a new registration builder with defaults
-func NewMCPServerRegistrationWithDefaults(testName string, k8sClient client.Client) *MCPServerRegistrationBuilder {
-	return NewMCPServerRegistration(testName, "e2e-server2.mcp.local", "mcp-test-server2", 9090, k8sClient)
+// NewMCPServerResourcesWithDefaults creates a new registration builder with defaults
+func NewMCPServerResourcesWithDefaults(testName string, k8sClient client.Client) *MCPServerResourcesBuilder {
+	return NewMCPServerResources(testName, "e2e-server2.mcp.local", "mcp-test-server2", 9090, k8sClient)
 }
 
 // NewMCPServerRegistration creates a new registration builder
-func NewMCPServerRegistration(testName, hostName, serviceName string, port int32, k8sClient client.Client) *MCPServerRegistrationBuilder {
+func NewMCPServerResources(testName, hostName, serviceName string, port int32, k8sClient client.Client) *MCPServerResourcesBuilder {
 	httpRoute := BuildTestHTTPRoute("e2e-server2-route-"+testName, TestNamespace,
 		hostName, serviceName, port)
 	mcpServer := BuildTestMCPServer(httpRoute.Name, TestNamespace,
 		httpRoute.Name, httpRoute.Name).Build()
 	mcpServer.Labels["test"] = testName
 
-	return &MCPServerRegistrationBuilder{
+	return &MCPServerResourcesBuilder{
 		k8sClient: k8sClient,
 		httpRoute: httpRoute,
 		mcpServer: mcpServer,
@@ -426,7 +426,7 @@ func IsTrustedHeadersEnabled() bool {
 }
 
 // WithBackendTarget sets the backend service and port for the HTTPRoute
-func (b *MCPServerRegistrationBuilder) WithBackendTarget(backend string, port int32) *MCPServerRegistrationBuilder {
+func (b *MCPServerResourcesBuilder) WithBackendTarget(backend string, port int32) *MCPServerResourcesBuilder {
 	if b.httpRoute != nil {
 		p := gatewayapiv1.PortNumber(port)
 		b.httpRoute.Spec.Rules[0].BackendRefs[0].BackendObjectReference = gatewayapiv1.BackendObjectReference{
@@ -442,19 +442,19 @@ func (b *MCPServerRegistrationBuilder) WithBackendTarget(backend string, port in
 }
 
 // WithCredential overrides the default credential secret
-func (b *MCPServerRegistrationBuilder) WithCredential(secret *corev1.Secret, key string) *MCPServerRegistrationBuilder {
+func (b *MCPServerResourcesBuilder) WithCredential(secret *corev1.Secret, key string) *MCPServerResourcesBuilder {
 	b.credential = secret
 	return b
 }
 
 // WithHTTPRoute overrides the default HTTPRoute
-func (b *MCPServerRegistrationBuilder) WithHTTPRoute(route *gatewayapiv1.HTTPRoute) *MCPServerRegistrationBuilder {
+func (b *MCPServerResourcesBuilder) WithHTTPRoute(route *gatewayapiv1.HTTPRoute) *MCPServerResourcesBuilder {
 	b.httpRoute = route
 	return b
 }
 
 // WithToolPrefix overrides the default tool prefix
-func (b *MCPServerRegistrationBuilder) WithToolPrefix(prefix string) *MCPServerRegistrationBuilder {
+func (b *MCPServerResourcesBuilder) WithToolPrefix(prefix string) *MCPServerResourcesBuilder {
 	if b.mcpServer != nil {
 		b.mcpServer.Spec.ToolPrefix = prefix
 	}
@@ -462,7 +462,7 @@ func (b *MCPServerRegistrationBuilder) WithToolPrefix(prefix string) *MCPServerR
 }
 
 // Register creates all resources and returns them
-func (b *MCPServerRegistrationBuilder) Register(ctx context.Context) *mcpv1alpha1.MCPServer {
+func (b *MCPServerResourcesBuilder) Register(ctx context.Context) *mcpv1alpha1.MCPServerRegistration {
 
 	if b.credential != nil {
 		GinkgoWriter.Println("creating credential ", b.credential.Name)
@@ -479,7 +479,7 @@ func (b *MCPServerRegistrationBuilder) Register(ctx context.Context) *mcpv1alpha
 }
 
 // GetObjects returns all objects defined in the builder
-func (b *MCPServerRegistrationBuilder) GetObjects() []client.Object {
+func (b *MCPServerResourcesBuilder) GetObjects() []client.Object {
 	objects := []client.Object{}
 	if b.credential != nil {
 		objects = append(objects, b.credential)
@@ -666,8 +666,8 @@ func NewMCPGatewayClientWithHeaders(ctx context.Context, gatewayHost string, hea
 	return gatewayClient, nil
 }
 
-// verifyMCPServerToolsPresent this will ensure at least one tool in the tools list is from the MCPServer that uses the prefix
-func verifyMCPServerToolsPresent(serverPrefix string, toolsList *mcp.ListToolsResult) bool {
+// verifyMCPServerRegistrationToolsPresent this will ensure at least one tool in the tools list is from the MCPServer that uses the prefix
+func verifyMCPServerRegistrationToolsPresent(serverPrefix string, toolsList *mcp.ListToolsResult) bool {
 	if toolsList == nil {
 		return false
 	}
@@ -679,8 +679,8 @@ func verifyMCPServerToolsPresent(serverPrefix string, toolsList *mcp.ListToolsRe
 	return false
 }
 
-// verifyMCPServerToolPresent this will ensure at least one tool in the tools list is from the MCPServer that uses the prefix
-func verifyMCPServerToolPresent(toolName string, toolsList *mcp.ListToolsResult) bool {
+// verifyMCPServerRegistrationToolPresent this will ensure at least one tool in the tools list is from the MCPServer that uses the prefix
+func verifyMCPServerRegistrationToolPresent(toolName string, toolsList *mcp.ListToolsResult) bool {
 	if toolsList == nil {
 		return false
 	}
@@ -840,17 +840,17 @@ func ptrTo[T any](v T) *T {
 	return &v
 }
 
-type ExternalMCPServerRegistrationBuilder struct {
+type ExternalMCPServerResourcesBuilder struct {
 	k8sClient        client.Client
 	serviceEntry     *istionetv1beta1.ServiceEntry
 	destinationRule  *istionetv1beta1.DestinationRule
 	httpRoute        *gatewayapiv1.HTTPRoute
-	mcpServer        *mcpv1alpha1.MCPServer
+	mcpServer        *mcpv1alpha1.MCPServerRegistration
 	internalHostname string
 	externalHostname string
 }
 
-func NewExternalMCPServerRegistration(testName string, k8sClient client.Client, externalHost string, port int32) *ExternalMCPServerRegistrationBuilder {
+func NewExternalMCPServerResources(testName string, k8sClient client.Client, externalHost string, port int32) *ExternalMCPServerResourcesBuilder {
 	internalHostname := fmt.Sprintf("e2e-external-%s.mcp.local", testName)
 
 	serviceEntry := BuildServiceEntry("e2e-se-"+testName, TestNamespace, externalHost, uint32(port))
@@ -862,7 +862,7 @@ func NewExternalMCPServerRegistration(testName string, k8sClient client.Client, 
 		WithToolPrefix(httpRoute.Name).
 		Build()
 
-	return &ExternalMCPServerRegistrationBuilder{
+	return &ExternalMCPServerResourcesBuilder{
 		k8sClient:        k8sClient,
 		serviceEntry:     serviceEntry,
 		destinationRule:  destinationRule,
@@ -873,7 +873,7 @@ func NewExternalMCPServerRegistration(testName string, k8sClient client.Client, 
 	}
 }
 
-func (b *ExternalMCPServerRegistrationBuilder) Register(ctx context.Context) *mcpv1alpha1.MCPServer {
+func (b *ExternalMCPServerResourcesBuilder) Register(ctx context.Context) *mcpv1alpha1.MCPServerRegistration {
 	GinkgoWriter.Println("creating ServiceEntry", b.serviceEntry.Name)
 	Expect(b.k8sClient.Create(ctx, b.serviceEntry)).To(Succeed())
 
@@ -889,7 +889,7 @@ func (b *ExternalMCPServerRegistrationBuilder) Register(ctx context.Context) *mc
 	return b.mcpServer
 }
 
-func (b *ExternalMCPServerRegistrationBuilder) GetObjects() []client.Object {
+func (b *ExternalMCPServerResourcesBuilder) GetObjects() []client.Object {
 	return []client.Object{
 		b.serviceEntry,
 		b.destinationRule,

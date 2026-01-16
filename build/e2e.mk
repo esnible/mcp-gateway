@@ -46,7 +46,7 @@ test-e2e-local: test-e2e-deps ## Quick e2e test run for local development (no se
 .PHONY: test-e2e-cleanup
 test-e2e-cleanup: ## Clean up e2e test resources
 	@echo "Cleaning up e2e test resources..."
-	-kubectl delete mcpservers -n mcp-test --all
+	-kubectl delete mcpserverregistrations -n mcp-test --all
 	-kubectl delete httproutes -n mcp-test -l test=e2e
 
 .PHONY: test-e2e-watch

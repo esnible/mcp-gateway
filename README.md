@@ -175,7 +175,7 @@ servers:
 
 ### Kubernetes Configuration
 
-#### MCPServer Resource
+#### MCPServerRegistration Resource
 
 The `MCPServer` is a Kubernetes Custom Resource that defines an MCP (Model Context Protocol) server to be aggregated by the gateway. It enables discovery and federation of tools from backend MCP servers through Gateway API `HTTPRoute` references.
 
@@ -189,7 +189,7 @@ Create `MCPServer` resources that reference HTTPRoutes:
 
 ```yaml
 apiVersion: mcp.kagenti.com/v1alpha1
-kind: MCPServer
+kind: MCPServerRegistration
 metadata:
   name: weather-tools
 spec:
@@ -200,7 +200,7 @@ spec:
   toolPrefix: weather_
 ---
 apiVersion: mcp.kagenti.com/v1alpha1
-kind: MCPServer
+kind: MCPServerRegistration
 metadata:
   name: calendar-tools
 spec:

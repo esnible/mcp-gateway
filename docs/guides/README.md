@@ -3,7 +3,8 @@
 - About the MCP Gateway
     - [Overview](./overview.md)
     - [Architecture](../design/overview.md)
-- [Getting Started](./getting-started.md)
+- Information and links to get you started
+    - [Getting Started](./getting-started.md)
 - Installing the MCP Gateway
     - [Helm Install](./how-to-install-and-configure.md)
 - [Configure MCP Gateway Listener and Router](./configure-mcp-gateway-listener-and-router.md)

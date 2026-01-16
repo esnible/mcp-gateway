@@ -435,6 +435,22 @@ func (r *MCPReconciler) discoverServersFromHTTPRoutes(
 		)
 	}
 
+	if len(httpRoute.Spec.Rules) > 1 {
+		return nil, fmt.Errorf(
+			"HTTPRoute %s/%s has > 1 rule, which is unsupported",
+			namespace,
+			targetRef.Name,
+		)
+	}
+
+	if len(httpRoute.Spec.Rules[0].BackendRefs) > 1 {
+		return nil, fmt.Errorf(
+			"HTTPRoute %s/%s has > 1 backend reference, which is unsupported",
+			namespace,
+			targetRef.Name,
+		)
+	}
+
 	backendRef := httpRoute.Spec.Rules[0].BackendRefs[0]
 	if backendRef.Name == "" {
 		return nil, fmt.Errorf("backend reference has no name")

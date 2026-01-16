@@ -8,7 +8,7 @@ import (
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Namespaced,shortName=mcpsr
 // +kubebuilder:printcolumn:name="Prefix",type="string",JSONPath=".spec.toolPrefix",description="Tool prefix for federation"
-// +kubebuilder:printcolumn:name="Target",type="string",JSONPath=".spec.targetRef.name",description="Target HTTPRoute"
+// +kubebuilder:printcolumn:name="Target",type="string",JSONPath=".spec.targetRef.name",description="Target HTTPRoute.  MCP Gateway only supports routes with a single BackendRef"
 // +kubebuilder:printcolumn:name="Path",type="string",JSONPath=".spec.path",description="MCP endpoint path"
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status",description="Ready status"
 // +kubebuilder:printcolumn:name="Tools",type="integer",JSONPath=".status.discoveredTools",description="Number of discovered tools"
@@ -16,8 +16,7 @@ import (
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
 // MCPServerRegistration defines a collection of MCP (Model Context Protocol) servers to be aggregated by the gateway.
-// It enables discovery and federation of tools from multiple backend MCP servers through HTTPRoute references,
-// providing a declarative way to configure which MCP servers should be accessible through the gateway.
+// It enables discovery and federation of tools from multiple backend MCP servers through HTTPRoute references, providing a declarative way to configure which MCP servers should be accessible through the gateway.
 type MCPServerRegistration struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -30,15 +29,14 @@ type MCPServerRegistration struct {
 // It specifies which HTTPRoutes point to MCP servers and how their tools should be federated.
 type MCPServerRegistrationSpec struct {
 	// TargetRef specifies an HTTPRoute that points to a backend MCP server.
-	// The referenced HTTPRoute should have backend services that implement the MCP protocol.
+	// The referenced HTTPRoute should have a backend service that implements the MCP protocol.
 	// The controller will discover the backend service from this HTTPRoute and configure
 	// the broker to federate tools from that MCP server.
 	TargetRef TargetReference `json:"targetRef"`
 
 	// ToolPrefix is the prefix to add to all federated tools from referenced servers.
 	// This helps avoid naming conflicts when aggregating tools from multiple sources.
-	// For example, if two servers both provide a 'search' tool, prefixes like 'server1_' and 'server2_'
-	// ensure they can coexist as 'server1_search' and 'server2_search'.
+	// For example, if two servers both provide a 'search' tool, prefixes like 'server1_' and 'server2_' ensure they can coexist as 'server1_search' and 'server2_search'.
 	// +optional
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf || oldSelf == ''",message="toolPrefix is immutable once set"
 	ToolPrefix string `json:"toolPrefix,omitempty"`
@@ -52,8 +50,7 @@ type MCPServerRegistrationSpec struct {
 
 	// CredentialRef references a Secret containing authentication credentials for the MCP server.
 	// The Secret should contain a key with the authentication token or credentials.
-	// The controller will aggregate these credentials and make them available to the broker
-	// via environment variables following the pattern: KAGENTI_{MCP_NAME}_CRED
+	// The controller will aggregate these credentials and make them available to the broker via environment variables following the pattern: KAGENTI_{MCP_NAME}_CRED
 	// +optional
 	CredentialRef *SecretReference `json:"credentialRef,omitempty"`
 }
@@ -92,8 +89,7 @@ type SecretReference struct {
 }
 
 // MCPServerRegistrationStatus represents the observed state of the MCPServerRegistration resource.
-// It contains conditions that indicate whether the referenced servers have been
-// successfully discovered and are ready for use.
+// It contains conditions that indicate whether the referenced servers have been successfully discovered and are ready for use.
 type MCPServerRegistrationStatus struct {
 	// Conditions represent the latest available observations of the MCPServerRegistration's state.
 	// Common conditions include 'Ready' to indicate if all referenced servers are accessible.

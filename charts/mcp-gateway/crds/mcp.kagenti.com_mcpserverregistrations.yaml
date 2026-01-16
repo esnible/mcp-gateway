@@ -101,7 +101,7 @@ spec:
               targetRef:
                 description: |-
                   TargetRef specifies an HTTPRoute that points to a backend MCP server.
-                  The referenced HTTPRoute should have a backend services that implements the MCP protocol.
+                  The referenced HTTPRoute should have a backend service that implements the MCP protocol.
                   The controller will discover the backend service from this HTTPRoute and configure
                   the broker to federate tools from that MCP server.
                 properties:

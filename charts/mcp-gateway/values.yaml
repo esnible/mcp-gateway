@@ -1,16 +1,18 @@
 # Default values for mcp-gateway.
 # This is a YAML-formatted file.
 
-# Image configuration
+# Image configuration for mcp-gateway (broker/router)
 image:
-  repository: ghcr.io/kagenti/mcp-gateway
-  tag: latest
+  repository: ghcr.io/kuadrant/mcp-gateway
+  # tag defaults to Chart.appVersion if empty
+  tag: ""
   pullPolicy: IfNotPresent
 
-  # Image configuration
+# Image configuration for mcp-controller
 imageController:
-  repository: ghcr.io/kagenti/mcp-controller
-  tag: latest
+  repository: ghcr.io/kuadrant/mcp-controller
+  # tag defaults to Chart.appVersion if empty
+  tag: ""
   pullPolicy: IfNotPresent
 
 # ConfigMap for MCP gateway configuration

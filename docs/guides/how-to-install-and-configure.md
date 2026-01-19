@@ -41,7 +41,7 @@ You'll need at least one MCP server to route through the gateway. This can be:
 Install from GitHub Container Registry:
 
 ```bash
-helm install mcp-gateway oci://ghcr.io/kagenti/charts/mcp-gateway \
+helm install mcp-gateway oci://ghcr.io/kuadrant/charts/mcp-gateway \
   --create-namespace \
   --namespace mcp-system \
   --set gateway.publicHost=your-hostname.example.com

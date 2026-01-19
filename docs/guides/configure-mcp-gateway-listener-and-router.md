@@ -34,7 +34,7 @@ spec:
 
 > **Important:** If you installed MCP Gateway using Helm, ensure the `gateway.publicHost` value in your Helm values matches the hostname above. For example:
 > ```bash
-> helm upgrade mcp-gateway oci://ghcr.io/kagenti/charts/mcp-gateway \
+> helm upgrade mcp-gateway oci://ghcr.io/kuadrant/charts/mcp-gateway \
 >   --set gateway.publicHost=mcp.127-0-0-1.sslip.io
 > ```
 

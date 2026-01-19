@@ -24,7 +24,7 @@ spec:
   project: default
   source:
     chart: mcp-gateway
-    repoURL: ghcr.io/kagenti/charts
+    repoURL: ghcr.io/kuadrant/charts
     targetRevision: 0.3.0
   syncPolicy:
     automated:

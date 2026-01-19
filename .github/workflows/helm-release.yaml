@@ -1,17 +1,18 @@
 name: Helm Chart Release
 
 on:
+  release:
+    types: [published]
   workflow_dispatch:
     inputs:
       chart_version:
-        description: 'Chart version to release (e.g., 0.1.0)'
+        description: 'Chart version to release (e.g., 0.4.2)'
         required: true
         type: string
       app_version:
-        description: 'App version (defaults to latest if not specified)'
+        description: 'App version (defaults to chart_version with v prefix)'
         required: false
         type: string
-        default: 'latest'
 
 env:
   REGISTRY: ghcr.io
@@ -27,28 +28,52 @@ jobs:
     permissions:
       contents: read
       packages: write
-    
+
     steps:
     - name: Checkout
       uses: actions/checkout@v4
+
+    - name: Determine versions
+      id: versions
+      run: |
+        if [ "${{ github.event_name }}" = "release" ]; then
+          # Extract version from release tag (e.g., v0.4.2 -> 0.4.2)
+          TAG="${{ github.event.release.tag_name }}"
+          CHART_VERSION="${TAG#v}"
+          APP_VERSION="${TAG}"
+        else
+          # Manual workflow dispatch
+          CHART_VERSION="${{ inputs.chart_version }}"
+          APP_VERSION="${{ inputs.app_version }}"
+          # Default app_version to v + chart_version if not specified
+          if [ -z "$APP_VERSION" ]; then
+            APP_VERSION="v${CHART_VERSION}"
+          fi
+        fi
+
+        echo "chart_version=${CHART_VERSION}" >> $GITHUB_OUTPUT
+        echo "app_version=${APP_VERSION}" >> $GITHUB_OUTPUT
+        echo "Chart Version: ${CHART_VERSION}"
+        echo "App Version: ${APP_VERSION}"
+
+    - name: Validate chart version format
+      run: |
+        if [[ ! "${{ steps.versions.outputs.chart_version }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "Error: Chart version must be in format X.Y.Z (e.g., 0.4.2)"
+          echo "Got: ${{ steps.versions.outputs.chart_version }}"
+          exit 1
+        fi
 
     - name: Install Helm
       uses: azure/setup-helm@v4
       with:
         version: '3.14.0'
 
-    - name: Validate chart version format
-      run: |
-        if [[ ! "${{ inputs.chart_version }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-          echo "Error: Chart version must be in format X.Y.Z (e.g., 0.1.0)"
-          exit 1
-        fi
-
     - name: Update Chart.yaml versions
       run: |
-        sed -i "s/version: .*/version: ${{ inputs.chart_version }}/" charts/mcp-gateway/Chart.yaml
-        sed -i "s/appVersion: .*/appVersion: \"${{ inputs.app_version }}\"/" charts/mcp-gateway/Chart.yaml
-        
+        sed -i "s/version: .*/version: ${{ steps.versions.outputs.chart_version }}/" charts/mcp-gateway/Chart.yaml
+        sed -i "s/appVersion: .*/appVersion: \"${{ steps.versions.outputs.app_version }}\"/" charts/mcp-gateway/Chart.yaml
+
         echo "Updated Chart.yaml:"
         cat charts/mcp-gateway/Chart.yaml
 
@@ -65,7 +90,7 @@ jobs:
         # Install kubeconform for validation
         curl -L https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz | tar xz
         sudo mv kubeconform /usr/local/bin
-        
+
         # Validate generated manifests (ignore unknown CRDs like EnvoyFilter)
         helm template test-release charts/mcp-gateway | kubeconform -strict -summary -ignore-missing-schemas
 
@@ -89,39 +114,41 @@ jobs:
       run: |
         # Verify the chart we just pushed works (client-only, no cluster needed)
         echo "Testing chart template rendering from OCI registry..."
-        helm template test-install oci://${{ env.REGISTRY }}/${{ github.repository_owner }}/charts/mcp-gateway --version ${{ inputs.chart_version }} --debug
+        helm template test-install oci://${{ env.REGISTRY }}/${{ github.repository_owner }}/charts/mcp-gateway --version ${{ steps.versions.outputs.chart_version }} --debug
 
     - name: Generate release summary
       run: |
         echo "## Helm Chart Release Summary" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "- **Chart Name:** ${{ env.CHART_NAME }}" >> $GITHUB_STEP_SUMMARY  
-        echo "- **Chart Version:** ${{ inputs.chart_version }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **App Version:** ${{ inputs.app_version }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Chart Name:** ${{ env.CHART_NAME }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Chart Version:** ${{ steps.versions.outputs.chart_version }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **App Version:** ${{ steps.versions.outputs.app_version }}" >> $GITHUB_STEP_SUMMARY
         echo "- **Registry:** ${{ env.REGISTRY }}/${{ github.repository_owner }}/charts" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "### Installation Command" >> $GITHUB_STEP_SUMMARY
         echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
-        echo "helm install mcp-gateway oci://${{ env.REGISTRY }}/${{ github.repository_owner }}/charts/mcp-gateway --version ${{ inputs.chart_version }} --create-namespace --namespace mcp-system" >> $GITHUB_STEP_SUMMARY
+        echo "helm install mcp-gateway oci://${{ env.REGISTRY }}/${{ github.repository_owner }}/charts/mcp-gateway --version ${{ steps.versions.outputs.chart_version }} --create-namespace --namespace mcp-system" >> $GITHUB_STEP_SUMMARY
         echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
 
   create-git-tag:
+    # Only create chart tag for manual workflow dispatch (releases already have a tag)
+    if: github.event_name == 'workflow_dispatch'
     needs: validate-and-package
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    
+
     steps:
     - name: Checkout
       uses: actions/checkout@v4
-      
+
     - name: Create and push git tag
       run: |
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
-        
+
         tag_name="chart-v${{ inputs.chart_version }}"
         git tag -a "$tag_name" -m "Helm chart release v${{ inputs.chart_version }}"
         git push origin "$tag_name"
-        
+
         echo "Created git tag: $tag_name"

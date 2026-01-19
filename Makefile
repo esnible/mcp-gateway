@@ -165,13 +165,13 @@ build-and-load-image: kind build-image load-image restart-all  ## Build & load r
 
 .PHONY: load-image
 load-image: kind ## Load the mcp-gateway image into the kind cluster
-	$(call load-image,ghcr.io/kagenti/mcp-gateway:latest)
-	$(call load-image,ghcr.io/kagenti/mcp-controller:latest)
+	$(call load-image,ghcr.io/kuadrant/mcp-gateway:latest)
+	$(call load-image,ghcr.io/kuadrant/mcp-controller:latest)
 
 .PHONY: build-image
 build-image: kind ## Build the mcp-gateway image
-	$(CONTAINER_ENGINE) build $(CONTAINER_ENGINE_EXTRA_FLAGS) -t ghcr.io/kagenti/mcp-gateway:latest .
-	$(CONTAINER_ENGINE) build $(CONTAINER_ENGINE_EXTRA_FLAGS) --file Dockerfile.controller -t ghcr.io/kagenti/mcp-controller:latest .
+	$(CONTAINER_ENGINE) build $(CONTAINER_ENGINE_EXTRA_FLAGS) -t ghcr.io/kuadrant/mcp-gateway:latest .
+	$(CONTAINER_ENGINE) build $(CONTAINER_ENGINE_EXTRA_FLAGS) --file Dockerfile.controller -t ghcr.io/kuadrant/mcp-controller:latest .
 
 # Deploy example MCPServerRegistration
 deploy-example: install-crd ## Deploy example MCPServerRegistration resource
@@ -255,13 +255,13 @@ deploy-conformance-server: kind-load-conformance-server ## Deploy conformance MC
 
 # Build and push container image TODO we have this and build-image lets just use one
 docker-build: ## Build container image locally
-	$(CONTAINER_ENGINE) build $(CONTAINER_ENGINE_EXTRA_FLAGS) -t ghcr.io/kagenti/mcp-gateway:latest .
-	$(CONTAINER_ENGINE) build $(CONTAINER_ENGINE_EXTRA_FLAGS) --file Dockerfile.controller -t ghcr.io/kagenti/mcp-controller:latest .
+	$(CONTAINER_ENGINE) build $(CONTAINER_ENGINE_EXTRA_FLAGS) -t ghcr.io/kuadrant/mcp-gateway:latest .
+	$(CONTAINER_ENGINE) build $(CONTAINER_ENGINE_EXTRA_FLAGS) --file Dockerfile.controller -t ghcr.io/kuadrant/mcp-controller:latest .
 
 # Common reload steps
 define reload-image
-	@docker tag mcp-gateway:local ghcr.io/kagenti/mcp-gateway:latest
-	@$(call load-image,ghcr.io/kagenti/mcp-gateway:latest)
+	@docker tag mcp-gateway:local ghcr.io/kuadrant/mcp-gateway:latest
+	@$(call load-image,ghcr.io/kuadrant/mcp-gateway:latest)
 endef
 
 .PHONY: reload-controller

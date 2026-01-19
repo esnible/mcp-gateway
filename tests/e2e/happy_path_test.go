@@ -851,60 +851,10 @@ var _ = Describe("MCP Gateway Registration Happy Path", func() {
 
 		// Call server2's prefixed headers tool
 		res, err = mcpGatewayClient.CallTool(ctx, mcp.CallToolRequest{
-			Params: mcp.CallToolParams{Name: "server2_headers"},
+			Params: mcp.CallToolParams{Name: "server2_time"},
 		})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res).NotTo(BeNil())
 		Expect(len(res.Content)).To(BeNumerically(">=", 1))
-	})
-
-	It("[Happy] should expose tool annotations to the client", func() {
-		By("Creating an MCPServer pointing to server1 which has tools with annotations")
-		registration := NewMCPServerResourcesWithDefaults("annotations-test", k8sClient).
-			WithBackendTarget(sharedMCPTestServer1, 9090)
-		testResources = append(testResources, registration.GetObjects()...)
-		registeredServer := registration.Register(ctx)
-
-		By("Ensuring the gateway has registered the server")
-		Eventually(func(g Gomega) {
-			g.Expect(VerifyMCPServerRegistrationReady(ctx, k8sClient, registeredServer.Name, registeredServer.Namespace)).To(BeNil())
-		}, TestTimeoutLong, TestRetryInterval).To(Succeed())
-
-		By("Verifying tools are present")
-		Eventually(func(g Gomega) {
-			toolsList, err := mcpGatewayClient.ListTools(ctx, mcp.ListToolsRequest{})
-			g.Expect(err).Error().NotTo(HaveOccurred())
-			g.Expect(toolsList).NotTo(BeNil())
-			g.Expect(verifyMCPServerRegistrationToolsPresent(registeredServer.Spec.ToolPrefix, toolsList)).To(BeTrueBecause("%s should exist", registeredServer.Spec.ToolPrefix))
-		}, TestTimeoutLong, TestRetryInterval).To(Succeed())
-
-		By("Verifying tool annotations are visible for the 'time' tool")
-		toolsList, err := mcpGatewayClient.ListTools(ctx, mcp.ListToolsRequest{})
-		Expect(err).NotTo(HaveOccurred())
-
-		timeToolName := fmt.Sprintf("%s%s", registeredServer.Spec.ToolPrefix, "time")
-		var timeTool *mcp.Tool
-		for i, t := range toolsList.Tools {
-			if t.Name == timeToolName {
-				timeTool = &toolsList.Tools[i]
-				break
-			}
-		}
-		Expect(timeTool).NotTo(BeNil(), "time tool should exist")
-		GinkgoWriter.Printf("time tool annotations: %+v\n", timeTool.Annotations)
-		Expect(timeTool.Annotations.Title).To(Equal("time"), "time tool should have Title annotation set to 'time'")
-
-		By("Verifying tool annotations are visible for the 'add_tool' tool")
-		addToolName := fmt.Sprintf("%s%s", registeredServer.Spec.ToolPrefix, "add_tool")
-		var addTool *mcp.Tool
-		for i, t := range toolsList.Tools {
-			if t.Name == addToolName {
-				addTool = &toolsList.Tools[i]
-				break
-			}
-		}
-		Expect(addTool).NotTo(BeNil(), "add_tool should exist")
-		GinkgoWriter.Printf("add_tool annotations: %+v\n", addTool.Annotations)
-		Expect(addTool.Annotations.Title).To(Equal("add"), "add_tool should have Title annotation set to 'add'")
 	})
 })

@@ -2,7 +2,7 @@
 
 set -e
 
-MCP_GATEWAY_HELM_VERSION="${MCP_GATEWAY_HELM_VERSION:-0.4.1}"
+MCP_GATEWAY_HELM_VERSION="${MCP_GATEWAY_HELM_VERSION:-0.4.2}"
 
 MCP_GATEWAY_HOST="${MCP_GATEWAY_HOST:-mcp.apps.$(oc get dns cluster -o jsonpath='{.spec.baseDomain}')}"
 
@@ -44,7 +44,7 @@ oc apply -k "$SCRIPT_BASE_DIR/kustomize/connectivity-link/instance/base"
 
 # Install MCP Gateway using Helm
 echo "Installing MCP Gateway using Helm..."
-helm upgrade -i mcp-gateway -n $MCP_GATEWAY_NAMESPACE --create-namespace oci://ghcr.io/kagenti/charts/mcp-gateway --version $MCP_GATEWAY_HELM_VERSION
+helm upgrade -i mcp-gateway -n $MCP_GATEWAY_NAMESPACE --create-namespace oci://ghcr.io/kuadrant/charts/mcp-gateway --version $MCP_GATEWAY_HELM_VERSION
 
 # Configure MCP Gateway Ingress using Helm
 echo "Configuring MCP Gateway Ingress using Helm..."

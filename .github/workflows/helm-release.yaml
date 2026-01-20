@@ -51,10 +51,15 @@ jobs:
           fi
         fi
 
+        # lowercase owner for OCI registry compatibility
+        OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+
         echo "chart_version=${CHART_VERSION}" >> $GITHUB_OUTPUT
         echo "app_version=${APP_VERSION}" >> $GITHUB_OUTPUT
+        echo "owner=${OWNER}" >> $GITHUB_OUTPUT
         echo "Chart Version: ${CHART_VERSION}"
         echo "App Version: ${APP_VERSION}"
+        echo "Owner: ${OWNER}"
 
     - name: Validate chart version format
       run: |
@@ -108,13 +113,13 @@ jobs:
       run: |
         chart_package=$(ls ./chart-packages/mcp-gateway-*.tgz)
         echo "Pushing chart package: $chart_package"
-        helm push "$chart_package" oci://${{ env.REGISTRY }}/${{ github.repository_owner }}/charts
+        helm push "$chart_package" oci://${{ env.REGISTRY }}/${{ steps.versions.outputs.owner }}/charts
 
     - name: Verify chart installation
       run: |
         # Verify the chart we just pushed works (client-only, no cluster needed)
         echo "Testing chart template rendering from OCI registry..."
-        helm template test-install oci://${{ env.REGISTRY }}/${{ github.repository_owner }}/charts/mcp-gateway --version ${{ steps.versions.outputs.chart_version }} --debug
+        helm template test-install oci://${{ env.REGISTRY }}/${{ steps.versions.outputs.owner }}/charts/mcp-gateway --version ${{ steps.versions.outputs.chart_version }} --debug
 
     - name: Generate release summary
       run: |
@@ -123,11 +128,11 @@ jobs:
         echo "- **Chart Name:** ${{ env.CHART_NAME }}" >> $GITHUB_STEP_SUMMARY
         echo "- **Chart Version:** ${{ steps.versions.outputs.chart_version }}" >> $GITHUB_STEP_SUMMARY
         echo "- **App Version:** ${{ steps.versions.outputs.app_version }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Registry:** ${{ env.REGISTRY }}/${{ github.repository_owner }}/charts" >> $GITHUB_STEP_SUMMARY
+        echo "- **Registry:** ${{ env.REGISTRY }}/${{ steps.versions.outputs.owner }}/charts" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "### Installation Command" >> $GITHUB_STEP_SUMMARY
         echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
-        echo "helm install mcp-gateway oci://${{ env.REGISTRY }}/${{ github.repository_owner }}/charts/mcp-gateway --version ${{ steps.versions.outputs.chart_version }} --create-namespace --namespace mcp-system" >> $GITHUB_STEP_SUMMARY
+        echo "helm install mcp-gateway oci://${{ env.REGISTRY }}/${{ steps.versions.outputs.owner }}/charts/mcp-gateway --version ${{ steps.versions.outputs.chart_version }} --create-namespace --namespace mcp-system" >> $GITHUB_STEP_SUMMARY
         echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
 
   create-git-tag:

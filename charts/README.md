@@ -21,7 +21,7 @@ The MCP Gateway Helm chart deploys:
 ### Install from Chart
 
 ```bash
-helm install mcp-gateway oci://ghcr.io/kagenti/charts/mcp-gateway --version 0.1.0 --create-namespace --namespace mcp-system
+helm install mcp-gateway oci://ghcr.io/kuadrant/charts/mcp-gateway --version 0.1.0 --create-namespace --namespace mcp-system
 ```
 
 > **Note**: The chart defaults to the `mcp-system` namespace to match the controller's expectations.
@@ -48,7 +48,7 @@ The chart uses sensible defaults and requires minimal configuration. The configu
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| `image.repository` | Image repository | `ghcr.io/kagenti/mcp-gateway` |
+| `image.repository` | Image repository | `ghcr.io/kuadrant/mcp-gateway` |
 | `image.tag` | Image tag | `latest` |
 | `configMap.create` | Create initial ConfigMap | `true` |
 | `envoyFilter.create` | Create EnvoyFilter for Istio integration | `true` |
@@ -104,7 +104,7 @@ Alternatively, if using mcp-inspector or another mcp tool to interact directly w
 ## Upgrading
 
 ```bash
-helm upgrade mcp-gateway oci://ghcr.io/kagenti/charts/mcp-gateway --version 0.2.0
+helm upgrade mcp-gateway oci://ghcr.io/kuadrant/charts/mcp-gateway --version 0.2.0
 ```
 
 ## Uninstalling

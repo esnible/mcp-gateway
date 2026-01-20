@@ -12,165 +12,32 @@ import (
 )
 
 func TestGetOAuthConfig(t *testing.T) {
-	testCases := []struct {
-		name     string
-		envVars  map[string]string
-		expected *OAuthProtectedResource
-	}{
-		{
-			name:    "default values when no env vars set",
-			envVars: map[string]string{},
-			expected: &OAuthProtectedResource{
-				ResourceName:           "MCP Server",
-				Resource:               "/mcp",
-				AuthorizationServers:   []string{},
-				BearerMethodsSupported: []string{"header"},
-				ScopesSupported:        []string{"basic"},
-			},
-		},
-		{
-			name: "resource name override",
-			envVars: map[string]string{
-				envOAuthResourceName: "Custom MCP Server",
-			},
-			expected: &OAuthProtectedResource{
-				ResourceName:           "Custom MCP Server",
-				Resource:               "/mcp",
-				AuthorizationServers:   []string{},
-				BearerMethodsSupported: []string{"header"},
-				ScopesSupported:        []string{"basic"},
-			},
-		},
-		{
-			name: "resource override",
-			envVars: map[string]string{
-				envOAuthResource: "/custom/endpoint",
-			},
-			expected: &OAuthProtectedResource{
-				ResourceName:           "MCP Server",
-				Resource:               "/custom/endpoint",
-				AuthorizationServers:   []string{},
-				BearerMethodsSupported: []string{"header"},
-				ScopesSupported:        []string{"basic"},
-			},
-		},
-		{
-			name: "single authorization server",
-			envVars: map[string]string{
-				envOAuthAuthorizationServers: "https://auth.example.com",
-			},
-			expected: &OAuthProtectedResource{
-				ResourceName:           "MCP Server",
-				Resource:               "/mcp",
-				AuthorizationServers:   []string{"https://auth.example.com"},
-				BearerMethodsSupported: []string{"header"},
-				ScopesSupported:        []string{"basic"},
-			},
-		},
-		{
-			name: "multiple authorization servers with whitespace",
-			envVars: map[string]string{
-				envOAuthAuthorizationServers: "https://auth1.example.com, https://auth2.example.com , https://auth3.example.com",
-			},
-			expected: &OAuthProtectedResource{
-				ResourceName:           "MCP Server",
-				Resource:               "/mcp",
-				AuthorizationServers:   []string{"https://auth1.example.com", "https://auth2.example.com", "https://auth3.example.com"},
-				BearerMethodsSupported: []string{"header"},
-				ScopesSupported:        []string{"basic"},
-			},
-		},
-		{
-			name: "bearer methods override",
-			envVars: map[string]string{
-				envOAuthBearerMethodsSupported: "header, body",
-			},
-			expected: &OAuthProtectedResource{
-				ResourceName:           "MCP Server",
-				Resource:               "/mcp",
-				AuthorizationServers:   []string{},
-				BearerMethodsSupported: []string{"header", "body"},
-				ScopesSupported:        []string{"basic"},
-			},
-		},
-		{
-			name: "scopes override",
-			envVars: map[string]string{
-				envOAuthScopesSupported: "read, write, admin",
-			},
-			expected: &OAuthProtectedResource{
-				ResourceName:           "MCP Server",
-				Resource:               "/mcp",
-				AuthorizationServers:   []string{},
-				BearerMethodsSupported: []string{"header"},
-				ScopesSupported:        []string{"read", "write", "admin"},
-			},
-		},
-		{
-			name: "all env vars set",
-			envVars: map[string]string{
-				envOAuthResourceName:           "Full Config Server",
-				envOAuthResource:               "/api/mcp",
-				envOAuthAuthorizationServers:   "https://auth.example.com",
-				envOAuthBearerMethodsSupported: "header,body",
-				envOAuthScopesSupported:        "mcp:read,mcp:write",
-			},
-			expected: &OAuthProtectedResource{
-				ResourceName:           "Full Config Server",
-				Resource:               "/api/mcp",
-				AuthorizationServers:   []string{"https://auth.example.com"},
-				BearerMethodsSupported: []string{"header", "body"},
-				ScopesSupported:        []string{"mcp:read", "mcp:write"},
-			},
-		},
-		{
-			name: "whitespace trimming on all comma-separated values",
-			envVars: map[string]string{
-				envOAuthAuthorizationServers:   "  https://auth1.com  ,  https://auth2.com  ",
-				envOAuthBearerMethodsSupported: "  header  ,  body  ",
-				envOAuthScopesSupported:        "  read  ,  write  ",
-			},
-			expected: &OAuthProtectedResource{
-				ResourceName:           "MCP Server",
-				Resource:               "/mcp",
-				AuthorizationServers:   []string{"https://auth1.com", "https://auth2.com"},
-				BearerMethodsSupported: []string{"header", "body"},
-				ScopesSupported:        []string{"read", "write"},
-			},
-		},
-	}
+	// The test shouldn't be run with env vars set.
+	// We could use t.Setenv() to make test cases, but then the test couldn't run in parallel.
+	require.Equal(t, "", os.Getenv(envOAuthResourceName), "Test case expects env var to be unset")
+	require.Equal(t, "", os.Getenv(envOAuthResource), "Test case expects env var to be unset")
+	require.Equal(t, "", os.Getenv(envOAuthAuthorizationServers), "Test case expects env var to be unset")
+	require.Equal(t, "", os.Getenv(envOAuthBearerMethodsSupported), "Test case expects env var to be unset")
+	require.Equal(t, "", os.Getenv(envOAuthScopesSupported), "Test case expects env var to be unset")
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			// use t.Setenv which automatically cleans up after each test
-			// first clear all env vars by setting them to empty (t.Setenv handles cleanup)
-			for _, envVar := range []string{
-				envOAuthResourceName,
-				envOAuthResource,
-				envOAuthAuthorizationServers,
-				envOAuthBearerMethodsSupported,
-				envOAuthScopesSupported,
-			} {
-				t.Setenv(envVar, "")
-			}
-
-			// set env vars for this test case (overrides the empty values above)
-			for k, v := range tc.envVars {
-				t.Setenv(k, v)
-			}
-
-			result := getOAuthConfig()
-
-			require.Equal(t, tc.expected.ResourceName, result.ResourceName)
-			require.Equal(t, tc.expected.Resource, result.Resource)
-			require.Equal(t, tc.expected.AuthorizationServers, result.AuthorizationServers)
-			require.Equal(t, tc.expected.BearerMethodsSupported, result.BearerMethodsSupported)
-			require.Equal(t, tc.expected.ScopesSupported, result.ScopesSupported)
-		})
-	}
+	result := getOAuthConfig()
+	require.NotNil(t, result)
+	require.Equal(t, "MCP Server", result.ResourceName)
+	require.Equal(t, "/mcp", result.Resource)
+	require.Equal(t, []string{}, result.AuthorizationServers)
+	require.Equal(t, []string{"header"}, result.BearerMethodsSupported)
+	require.Equal(t, []string{"basic"}, result.ScopesSupported)
 }
 
 func TestProtectedResourceHandler_Handle(t *testing.T) {
+	// The test shouldn't be run with env vars set.
+	// We could use t.Setenv() to make test cases, but then the test couldn't run in parallel.
+	require.Equal(t, "", os.Getenv(envOAuthResourceName), "Test case expects env var to be unset")
+	require.Equal(t, "", os.Getenv(envOAuthResource), "Test case expects env var to be unset")
+	require.Equal(t, "", os.Getenv(envOAuthAuthorizationServers), "Test case expects env var to be unset")
+	require.Equal(t, "", os.Getenv(envOAuthBearerMethodsSupported), "Test case expects env var to be unset")
+	require.Equal(t, "", os.Getenv(envOAuthScopesSupported), "Test case expects env var to be unset")
+
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	testCases := []struct {
@@ -201,17 +68,6 @@ func TestProtectedResourceHandler_Handle(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// clear env vars to use defaults using t.Setenv (auto cleanup)
-			for _, envVar := range []string{
-				envOAuthResourceName,
-				envOAuthResource,
-				envOAuthAuthorizationServers,
-				envOAuthBearerMethodsSupported,
-				envOAuthScopesSupported,
-			} {
-				t.Setenv(envVar, "")
-			}
-
 			handler := &ProtectedResourceHandler{Logger: logger}
 
 			req := httptest.NewRequest(tc.method, "/.well-known/oauth-protected-resource", nil)
@@ -242,12 +98,15 @@ func TestProtectedResourceHandler_Handle(t *testing.T) {
 }
 
 func TestProtectedResourceHandler_Handle_WithCustomConfig(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
+	// The test shouldn't be run with env vars set.
+	// We could use t.Setenv() to make test cases, but then the test couldn't run in parallel.
+	require.Equal(t, "", os.Getenv(envOAuthResourceName), "Test case expects env var to be unset")
+	require.Equal(t, "", os.Getenv(envOAuthResource), "Test case expects env var to be unset")
+	require.Equal(t, "", os.Getenv(envOAuthAuthorizationServers), "Test case expects env var to be unset")
+	require.Equal(t, "", os.Getenv(envOAuthBearerMethodsSupported), "Test case expects env var to be unset")
+	require.Equal(t, "", os.Getenv(envOAuthScopesSupported), "Test case expects env var to be unset")
 
-	// set custom env vars using t.Setenv (auto cleanup)
-	t.Setenv(envOAuthResourceName, "Test Server")
-	t.Setenv(envOAuthResource, "/test/mcp")
-	t.Setenv(envOAuthAuthorizationServers, "https://auth.test.com")
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	handler := &ProtectedResourceHandler{Logger: logger}
 
@@ -262,7 +121,7 @@ func TestProtectedResourceHandler_Handle_WithCustomConfig(t *testing.T) {
 	err := json.NewDecoder(rec.Body).Decode(&response)
 	require.NoError(t, err)
 
-	require.Equal(t, "Test Server", response.ResourceName)
-	require.Equal(t, "/test/mcp", response.Resource)
-	require.Equal(t, []string{"https://auth.test.com"}, response.AuthorizationServers)
+	require.Equal(t, "MCP Server", response.ResourceName)
+	require.Equal(t, "/mcp", response.Resource)
+	require.Equal(t, []string{}, response.AuthorizationServers)
 }

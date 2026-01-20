@@ -28,6 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"github.com/Kuadrant/mcp-gateway/api/v1alpha1"
 	"github.com/Kuadrant/mcp-gateway/internal/controller"
@@ -36,6 +37,7 @@ import (
 func init() {
 	runtime.Must(v1alpha1.AddToScheme(scheme.Scheme))
 	runtime.Must(gatewayv1.Install(scheme.Scheme))
+	runtime.Must(gatewayv1beta1.Install(scheme.Scheme))
 }
 
 func main() {
@@ -55,6 +57,13 @@ func main() {
 		Client:    mgr.GetClient(),
 		Scheme:    mgr.GetScheme(),
 		APIReader: mgr.GetAPIReader(),
+	}).SetupWithManager(mgr); err != nil {
+		panic("unable to start manager : " + err.Error())
+	}
+
+	if err = (&controller.MCPGatewayExtensionReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		panic("unable to start manager : " + err.Error())
 	}

@@ -26,6 +26,9 @@ $(LOCALBIN):
 
 ENVTEST ?= $(LOCALBIN)/setup-envtest
 
+# Gateway API version for CRDs
+GATEWAY_API_VERSION ?= v1.4.1
+
 .PHONY: help
 help: ## Display this help
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
@@ -402,7 +405,7 @@ test-unit:
 	go test ./...
 
 .PHONY: test-controller-integration
-test-controller-integration: envtest
+test-controller-integration: envtest gateway-api-crds ## Run controller integration tests
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" $(GINKGO) $(GINKGO_FLAGS) -tags=integration ./internal/controller
   
 
@@ -410,6 +413,14 @@ test-controller-integration: envtest
 envtest: $(ENVTEST) ## Download envtest-setup locally if necessary.
 $(ENVTEST): $(LOCALBIN)
 	test -s $(LOCALBIN)/setup-envtest || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+
+.PHONY: gateway-api-crds
+gateway-api-crds: ## Download Gateway API CRDs for integration tests
+	@mkdir -p config/crd/gateway-api
+	@if [ ! -f config/crd/gateway-api/standard.yaml ]; then \
+		echo "Downloading Gateway API CRDs $(GATEWAY_API_VERSION)..."; \
+		curl -sL https://github.com/kubernetes-sigs/gateway-api/releases/download/$(GATEWAY_API_VERSION)/standard-install.yaml -o config/crd/gateway-api/standard.yaml; \
+	fi
 
 .PHONY: tools
 tools: ## Install all required tools (kind, helm, kustomize, yq, istioctl, controller-gen) to ./bin/

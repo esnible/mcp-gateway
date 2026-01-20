@@ -1,7 +1,19 @@
 package v1alpha1
 
 import (
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+const (
+	// ConditionTypeReady signals if a resource is ready
+	ConditionTypeReady = "Ready"
+	// ConditionReasonSuccess is the success reason users see
+	ConditionReasonSuccess = "ValidMCPGatewayExtension"
+	// ConditionReasonInvalid is the reason seen when invalid configuration occurs
+	ConditionReasonInvalid = "InvalidMCPGatewayExtension"
+	// ConditionReasonRefGrantRequired is the reason users will see when a ReferenceGrant is missing
+	ConditionReasonRefGrantRequired = "ReferenceGrantRequired"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -93,4 +105,15 @@ type MCPGatewayExtensionTargetReference struct {
 
 func init() {
 	SchemeBuilder.Register(&MCPGatewayExtension{}, &MCPGatewayExtensionList{})
+}
+
+// SetReadyCondition sets the Ready condition on the MCPGatewayExtension status
+func (m *MCPGatewayExtension) SetReadyCondition(status metav1.ConditionStatus, reason, message string) {
+	meta.SetStatusCondition(&m.Status.Conditions, metav1.Condition{
+		Type:               ConditionTypeReady,
+		Status:             status,
+		ObservedGeneration: m.Generation,
+		Reason:             reason,
+		Message:            message,
+	})
 }

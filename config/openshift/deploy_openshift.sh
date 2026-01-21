@@ -44,12 +44,18 @@ oc apply -k "$SCRIPT_BASE_DIR/kustomize/connectivity-link/instance/base"
 
 # Install MCP Gateway using Helm
 echo "Installing MCP Gateway using Helm..."
-helm upgrade -i mcp-gateway -n $MCP_GATEWAY_NAMESPACE --create-namespace oci://ghcr.io/kuadrant/charts/mcp-gateway --version $MCP_GATEWAY_HELM_VERSION
+helm upgrade -i mcp-gateway -n $MCP_GATEWAY_NAMESPACE --create-namespace oci://ghcr.io/kuadrant/charts/mcp-gateway --version $MCP_GATEWAY_HELM_VERSION \
+  --set gateway.publicHost="$MCP_GATEWAY_HOST"
 
 # Configure MCP Gateway Ingress using Helm
 echo "Configuring MCP Gateway Ingress using Helm..."
 helm upgrade -i mcp-gateway-ingress -n $GATEWAY_NAMESPACE --create-namespace "$SCRIPT_BASE_DIR/charts/mcp-gateway-ingress" \
-  --set mcpGateway.host="$MCP_GATEWAY_HOST"
+  --set mcpGateway.host="$MCP_GATEWAY_HOST" \
+  --set 'extraGatewayListeners[0].name=mcp-local' \
+  --set 'extraGatewayListeners[0].hostname=*.mcp.local' \
+  --set 'extraGatewayListeners[0].port=8080' \
+  --set 'extraGatewayListeners[0].protocol=HTTP' \
+  --set 'extraGatewayListeners[0].allowedRoutes.namespaces.from=All'
 
 echo
 echo "MCP Gateway deployment completed successfully."

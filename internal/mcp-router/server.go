@@ -117,6 +117,14 @@ func (s *ExtProcServer) Process(stream extProcV3.ExternalProcessor_ProcessServer
 			}
 			// override responses with custom handle responses
 			// GET /mcp would come through here
+			if localRequestHeaders == nil {
+				s.Logger.Debug("Body process requested before headers arrived")
+				return fmt.Errorf("protocol error: no request headers")
+			}
+			if mcpRequest == nil {
+				s.Logger.Debug("Body process did not receive body")
+				return fmt.Errorf("protocol error: no body")
+			}
 			mcpRequest.Headers = localRequestHeaders.Headers
 			mcpRequest.Streaming = streaming
 			responses = s.RouteMCPRequest(stream.Context(), mcpRequest)

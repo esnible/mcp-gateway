@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"sync"
 )
 
 // UpstreamMCPID is used as type for identifying individual upstreams
@@ -12,6 +13,8 @@ type UpstreamMCPID string
 
 // MCPServersConfig holds server configuration
 type MCPServersConfig struct {
+	lock sync.RWMutex
+
 	Servers        []*MCPServer
 	VirtualServers []*VirtualServer
 	observers      []Observer
@@ -23,24 +26,33 @@ type MCPServersConfig struct {
 
 // RegisterObserver registers an observer to be notified of changes to the config
 func (config *MCPServersConfig) RegisterObserver(obs Observer) {
+	config.lock.Lock()
+	defer config.lock.Unlock()
+
 	config.observers = append(config.observers, obs)
 }
 
 // Notify notifies registered observers of config changes
 func (config *MCPServersConfig) Notify(ctx context.Context) {
+	config.lock.RLock()
+	defer config.lock.RUnlock()
+
 	for _, observer := range config.observers {
 		go observer.OnConfigChange(ctx, config)
 	}
 }
 
 // GetServerConfigByName get the routing config by server name
-func (config *MCPServersConfig) GetServerConfigByName(serverName string) *MCPServer {
+func (config *MCPServersConfig) GetServerConfigByName(serverName string) (*MCPServer, error) {
+	config.lock.RLock()
+	defer config.lock.RUnlock()
+
 	for _, server := range config.Servers {
 		if server.Name == serverName {
-			return server
+			return server, nil
 		}
 	}
-	return nil
+	return nil, fmt.Errorf("unknown server")
 }
 
 // MCPServer represents a server

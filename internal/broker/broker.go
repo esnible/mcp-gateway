@@ -214,6 +214,10 @@ func (m *mcpBrokerImpl) GetVirtualSeverByHeader(namespaceName string) (config.Vi
 }
 
 func (m *mcpBrokerImpl) ToolAnnotations(serverID config.UpstreamMCPID, tool string) (mcp.ToolAnnotation, bool) {
+	// Avoid race with OnConfigChange()
+	m.mcpLock.RLock()
+	defer m.mcpLock.RUnlock()
+
 	upstream, ok := m.mcpServers[serverID]
 	if !ok {
 		return mcp.ToolAnnotation{}, false
@@ -227,6 +231,10 @@ func (m *mcpBrokerImpl) ToolAnnotations(serverID config.UpstreamMCPID, tool stri
 
 // GetServerInfo implements MCPBroker by providing a lookup of the server that implements a tool.
 func (m *mcpBrokerImpl) GetServerInfo(tool string) (*config.MCPServer, error) {
+	// Avoid race with OnConfigChange()
+	m.mcpLock.RLock()
+	defer m.mcpLock.RUnlock()
+
 	for _, upstream := range m.mcpServers {
 		t := upstream.GetServedManagedTool(tool)
 		if t != nil {
@@ -243,6 +251,10 @@ func (m *mcpBrokerImpl) GetServerInfo(tool string) (*config.MCPServer, error) {
 }
 
 func (m *mcpBrokerImpl) Shutdown(_ context.Context) error {
+	// Avoid race with OnConfigChange()
+	m.mcpLock.RLock()
+	defer m.mcpLock.RUnlock()
+
 	// Close the long-running notification channel
 	for _, mcpServer := range m.mcpServers {
 		if mcpServer != nil {
@@ -265,6 +277,10 @@ func (m *mcpBrokerImpl) HandleStatusRequest(w http.ResponseWriter, r *http.Reque
 
 // ValidateAllServers performs comprehensive validation of all registered servers and returns status
 func (m *mcpBrokerImpl) ValidateAllServers() StatusResponse {
+	// The race is with len(m.mcpServers), which is not thread-safe in Go
+	m.mcpLock.RLock()
+	defer m.mcpLock.RUnlock()
+
 	response := StatusResponse{
 		Servers:          make([]upstream.ServerValidationStatus, 0),
 		OverallValid:     true,

@@ -403,7 +403,7 @@ fix-newlines:
 
 
 test-unit:
-	go test -race ./...
+	go test -v -race ./...
 
 .PHONY: test-controller-integration
 test-controller-integration: envtest gateway-api-crds ## Run controller integration tests

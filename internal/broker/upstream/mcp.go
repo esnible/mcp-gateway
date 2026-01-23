@@ -16,10 +16,10 @@ import (
 // initialization state from the MCP handshake.
 type MCPServer struct {
 	*config.MCPServer
-	client  *client.Client
+	client   *client.Client
 	clientMu sync.RWMutex
-	headers map[string]string
-	init    *mcp.InitializeResult
+	headers  map[string]string
+	init     *mcp.InitializeResult
 }
 
 // NewUpstreamMCP creates a new MCPServer instance from the provided configuration.

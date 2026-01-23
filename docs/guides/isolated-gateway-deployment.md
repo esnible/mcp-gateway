@@ -55,8 +55,8 @@ The MCP Controller runs cluster-wide and reconciles MCPGatewayExtension and MCPS
 helm install mcp-controller ./charts/mcp-gateway \
   --namespace mcp-system \
   --create-namespace \
-  --set broker.enabled=false \
-  --set envoyFilter.create=false
+  --set envoyFilter.create=false \
+  --set mcpGatewayExtension.create=false
 ```
 
 ## Step 2: Create the Team Namespace
@@ -67,79 +67,40 @@ Create a namespace for the isolated MCP Gateway deployment:
 kubectl create namespace team-alpha
 ```
 
-## Step 3: Create ReferenceGrant (Cross-Namespace Only)
+## Step 3: Deploy MCP Gateway Instance
 
-If the MCPGatewayExtension is in a different namespace than the Gateway, create a ReferenceGrant in the Gateway's namespace to authorize the cross-namespace reference:
-
-```bash
-kubectl apply -f - <<EOF
-apiVersion: gateway.networking.k8s.io/v1beta1
-kind: ReferenceGrant
-metadata:
-  name: allow-team-alpha
-  namespace: gateway-system
-spec:
-  from:
-    - group: mcp.kagenti.com
-      kind: MCPGatewayExtension
-      namespace: team-alpha
-  to:
-    - group: gateway.networking.k8s.io
-      kind: Gateway
-EOF
-```
-
-Skip this step if the MCPGatewayExtension will be in the same namespace as the Gateway.
-
-## Step 4: Create MCPGatewayExtension
-
-Create the MCPGatewayExtension to associate the team's namespace with the target Gateway:
-
-```bash
-kubectl apply -f - <<EOF
-apiVersion: mcp.kagenti.com/v1alpha1
-kind: MCPGatewayExtension
-metadata:
-  name: team-alpha-gateway
-  namespace: team-alpha
-spec:
-  targetRef:
-    group: gateway.networking.k8s.io
-    kind: Gateway
-    name: mcp-gateway
-    namespace: gateway-system
-EOF
-```
-
-Wait for the MCPGatewayExtension to become ready:
-
-```bash
-kubectl wait --for=condition=Ready mcpgatewayextension/team-alpha-gateway -n team-alpha --timeout=60s
-```
-
-## Step 5: Deploy MCP Gateway Instance
-
-Deploy the broker and router into the team's namespace:
-
->Note: the MCP Gateway Instance **MUST** be in the same namespace as a MCPGatewayExtension resource. 
+Deploy the broker and router into the team's namespace. The Helm chart automatically creates the MCPGatewayExtension and ReferenceGrant (for cross-namespace references):
 
 ```bash
 helm install mcp-gateway ./charts/mcp-gateway \
   --namespace team-alpha \
   --set envoyFilter.create=true \
   --set envoyFilter.namespace=istio-system \
-  --set gateway.publicHost=team-alpha.mcp.example.com
+  --set gateway.publicHost=team-alpha.mcp.example.com \
+  --set mcpGatewayExtension.gatewayRef.name=mcp-gateway \
+  --set mcpGatewayExtension.gatewayRef.namespace=gateway-system
 ```
 
 The Helm chart creates:
+- MCPGatewayExtension targeting the specified Gateway
+- ReferenceGrant in the Gateway namespace (for cross-namespace references)
 - Broker/Router deployment
 - Service for the broker
 - EnvoyFilter to route traffic to this instance
 - ServiceAccount and RBAC
+- Config Secret for MCP server configuration
+
+Wait for the MCPGatewayExtension to become ready:
+
+```bash
+kubectl wait --for=condition=Ready mcpgatewayextension/mcp-gateway -n team-alpha --timeout=60s
+```
+
+> **Note**: To skip automatic MCPGatewayExtension creation (e.g., for manual control), set `--set mcpGatewayExtension.create=false` and create the resources manually as shown in the [Manual Resource Creation](#manual-resource-creation) section.
 
 
 
-## Step 6: Register MCP Servers
+## Step 4: Register MCP Servers
 
 > Note: this assumes you have created a HTTPRoute name `alpha-server-route`
 
@@ -201,45 +162,14 @@ spec:
       hostname: "*.team-beta.example.com"
 EOF
 
-# Create ReferenceGrant
-kubectl apply -f - <<EOF
-apiVersion: gateway.networking.k8s.io/v1beta1
-kind: ReferenceGrant
-metadata:
-  name: allow-team-beta
-  namespace: gateway-system
-spec:
-  from:
-    - group: mcp.kagenti.com
-      kind: MCPGatewayExtension
-      namespace: team-beta
-  to:
-    - group: gateway.networking.k8s.io
-      kind: Gateway
-      name: team-beta-gateway
-EOF
-
-# Create MCPGatewayExtension targeting the team-beta Gateway
-kubectl apply -f - <<EOF
-apiVersion: mcp.kagenti.com/v1alpha1
-kind: MCPGatewayExtension
-metadata:
-  name: team-beta-ext
-  namespace: team-beta
-spec:
-  targetRef:
-    group: gateway.networking.k8s.io
-    kind: Gateway
-    name: team-beta-gateway
-    namespace: gateway-system
-EOF
-
-# Deploy broker/router
+# Deploy broker/router (Helm automatically creates MCPGatewayExtension and ReferenceGrant)
 helm install mcp-gateway ./charts/mcp-gateway \
   --namespace team-beta \
   --set envoyFilter.create=true \
   --set envoyFilter.namespace=istio-system \
-  --set gateway.publicHost=mcp.team-beta.example.com
+  --set gateway.publicHost=mcp.team-beta.example.com \
+  --set mcpGatewayExtension.gatewayRef.name=team-beta-gateway \
+  --set mcpGatewayExtension.gatewayRef.namespace=gateway-system
 ```
 
 Each team now has their own isolated MCP Gateway instance targeting separate Gateways.
@@ -314,15 +244,66 @@ To remove an isolated deployment:
 # Delete MCP server registrations
 kubectl delete mcpserverregistration --all -n team-alpha
 
-# Uninstall Helm release
+# Uninstall Helm release (removes MCPGatewayExtension and ReferenceGrant)
 helm uninstall mcp-gateway -n team-alpha
-
-# Delete MCPGatewayExtension
-kubectl delete mcpgatewayextension team-alpha-gateway -n team-alpha
-
-# Delete ReferenceGrant
-kubectl delete referencegrant allow-team-alpha -n gateway-system
 
 # Delete namespace
 kubectl delete namespace team-alpha
+```
+
+## Manual Resource Creation
+
+If you prefer to create the MCPGatewayExtension and ReferenceGrant manually instead of having Helm manage them, disable automatic creation and apply the resources yourself:
+
+### ReferenceGrant (Cross-Namespace Only)
+
+If the MCPGatewayExtension is in a different namespace than the Gateway, create a ReferenceGrant in the Gateway's namespace:
+
+```bash
+kubectl apply -f - <<EOF
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: allow-team-alpha
+  namespace: gateway-system
+spec:
+  from:
+    - group: mcp.kagenti.com
+      kind: MCPGatewayExtension
+      namespace: team-alpha
+  to:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+EOF
+```
+
+### MCPGatewayExtension
+
+Create the MCPGatewayExtension to associate the team's namespace with the target Gateway:
+
+```bash
+kubectl apply -f - <<EOF
+apiVersion: mcp.kagenti.com/v1alpha1
+kind: MCPGatewayExtension
+metadata:
+  name: team-alpha-gateway
+  namespace: team-alpha
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: Gateway
+    name: mcp-gateway
+    namespace: gateway-system
+EOF
+```
+
+### Deploy without automatic resource creation
+
+```bash
+helm install mcp-gateway ./charts/mcp-gateway \
+  --namespace team-alpha \
+  --set envoyFilter.create=true \
+  --set envoyFilter.namespace=istio-system \
+  --set gateway.publicHost=team-alpha.mcp.example.com \
+  --set mcpGatewayExtension.create=false
 ```

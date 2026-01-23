@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net"
 	"net/url"
-	"os"
 	"strings"
 	"time"
 
@@ -44,15 +43,6 @@ const (
 	// HTTPRouteIndex used to find programmed httproutes TODO do we still need this?
 	ProgrammedHTTPRouteIndex = "status.hasProgrammedCondition"
 )
-
-// getConfigNamespace returns the namespace for config, using NAMESPACE env var or defaulting to mcp-system
-func getConfigNamespace() string {
-	namespace := os.Getenv("NAMESPACE")
-	if namespace == "" {
-		namespace = "mcp-system"
-	}
-	return namespace
-}
 
 // ServerInfo holds server information
 type ServerInfo struct {
@@ -487,105 +477,6 @@ func (r *MCPReconciler) buildMCPServerConfig(ctx context.Context, targetRoute *g
 	return &serverConfig, nil
 }
 
-// func (r *MCPReconciler) regenerateAggregatedConfig(ctx context.Context) error {
-// 	log := logf.FromContext(ctx)
-// 	// TODO this currently regenerates the entire config
-// 	mcpsrList := &mcpv1alpha1.MCPServerRegistrationList{}
-// 	if err := r.List(ctx, mcpsrList); err != nil {
-// 		return fmt.Errorf("failed to regenerateAggregatedConfig %w", err)
-// 	}
-
-// 	referencedHTTPRoutes := make(map[string]struct{})
-// 	for _, mcpsr := range mcpsrList.Items {
-// 		targetRef := mcpsr.Spec.TargetRef
-// 		if targetRef.Kind == "HTTPRoute" {
-// 			namespace := mcpsr.Namespace
-// 			if targetRef.Namespace != "" {
-// 				namespace = targetRef.Namespace
-// 			}
-// 			key := fmt.Sprintf("%s/%s", namespace, targetRef.Name)
-// 			referencedHTTPRoutes[key] = struct{}{}
-// 		}
-// 	}
-// 	servers := []config.MCPServer{}
-// 	if len(mcpsrList.Items) == 0 {
-// 		log.Info("No MCPServerRegistrations found, writing empty ConfigMap")
-// 		if err := r.ConfigReaderWriter.WriteMCPServerConfig(ctx, servers, config.DefaultNamespaceName); err != nil {
-// 			return fmt.Errorf("Failed to write empty configuration %w", err)
-// 		}
-// 		log.Info("Successfully wrote empty ConfigMap")
-// 		return nil
-// 	}
-
-// 	for _, mcpsr := range mcpsrList.Items {
-// 		if mcpsr.DeletionTimestamp != nil {
-// 			// don't add deleting mcpserver
-// 			continue
-// 		}
-// 		httpRoute, err := r.getTargetHTTPRoute(ctx, &mcpsr)
-// 		// TODO we need the httproute here
-// 		serverInfo, err := r.buildServerInfoFromHTTPRoute(ctx, httpRoute, mcpsr.Spec.Path)
-// 		if err != nil {
-// 			log.Error(err, "Failed to discover server endpoints",
-// 				"mcpregistrationname", mcpsr.Name,
-// 				"namespace", mcpsr.Namespace)
-// 			continue
-// 		}
-
-// 		serverName := fmt.Sprintf(
-// 			"%s/%s",
-// 			serverInfo.HTTPRouteNamespace,
-// 			serverInfo.HTTPRouteName,
-// 		)
-// 		serverConfig := config.MCPServer{
-// 			Name:       serverName,
-// 			URL:        serverInfo.Endpoint,
-// 			Hostname:   serverInfo.Hostname,
-// 			ToolPrefix: mcpsr.Spec.ToolPrefix,
-// 			Enabled:    true,
-// 		}
-
-// 		// add credential env var if configured
-// 		if mcpsr.Spec.CredentialRef != nil {
-// 			secret := &corev1.Secret{}
-// 			err = r.Get(ctx, types.NamespacedName{
-// 				Name:      mcpsr.Spec.CredentialRef.Name,
-// 				Namespace: mcpsr.Namespace,
-// 			}, secret)
-// 			if err != nil {
-// 				log.Error(err, "failed to read credential secret")
-// 				continue
-// 			}
-// 			val, ok := secret.Data[mcpsr.Spec.CredentialRef.Key]
-// 			if !ok {
-// 				// no key log and continue
-// 				log.V(1).Info("the secret had no key ", "specified key", mcpsr.Spec.CredentialRef.Key)
-// 				continue
-// 			}
-// 			serverConfig.Credential = string(val)
-
-// 		}
-
-// 		servers = append(servers, serverConfig)
-
-// 	}
-
-// 	if err := r.ConfigReaderWriter.WriteMCPServerConfig(ctx, servers, config.DefaultNamespaceName); err != nil {
-
-// 		log.Error(err, "Failed to write aggregated configuration")
-// 		return err
-// 	}
-
-// 	log.V(1).Info("Successfully regenerated aggregated configuration", "serverCount", len(servers))
-
-// 	if err := r.cleanupOrphanedHTTPRoutes(ctx, referencedHTTPRoutes); err != nil {
-// 		log.Error(err, "Failed to cleanup orphaned HTTPRoute conditions")
-// 		return err
-// 	}
-
-// 	return nil
-// }
-
 func (r *MCPReconciler) buildServerInfoFromHTTPRoute(ctx context.Context, httpRoute *gatewayv1.HTTPRoute, path string) (*ServerInfo, error) {
 
 	if len(httpRoute.Spec.Rules) == 0 || len(httpRoute.Spec.Rules[0].BackendRefs) == 0 {
@@ -896,10 +787,6 @@ func (r *MCPReconciler) updateHTTPRouteStatus(
 		"affected", affected)
 
 	return nil
-}
-
-func serverID(httpRoute *gatewayv1.HTTPRoute, toolPrefix, endpoint string) string {
-	return fmt.Sprintf("%s:%s:%s", fmt.Sprintf("%s/%s", httpRoute.Namespace, httpRoute.Name), toolPrefix, endpoint)
 }
 
 func (r *MCPReconciler) updateStatus(

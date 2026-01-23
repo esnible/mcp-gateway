@@ -238,11 +238,6 @@ func BuildCredentialSecret(name, token string) *corev1.Secret {
 	}
 }
 
-// MCPServerName returns the full name of an MCP server from its HTTPRoute
-func MCPServerName(route *gatewayapiv1.HTTPRoute) string {
-	return fmt.Sprintf("%s/%s", route.Namespace, route.Name)
-}
-
 // VerifyMCPServerRegistrationReady checks if the MCPServer has Ready condition. Once ready it should be able to be invoked
 func VerifyMCPServerRegistrationReady(ctx context.Context, k8sClient client.Client, name, namespace string) error {
 	mcpServer := &mcpv1alpha1.MCPServerRegistration{}
@@ -504,87 +499,6 @@ func CleanupResource(ctx context.Context, k8sClient client.Client, obj client.Ob
 	}
 }
 
-// DumpComponentLogs dumps logs for mcp-gateway components on test failure
-func DumpComponentLogs() {
-	GinkgoWriter.Println("=== Dumping Component Logs ===")
-
-	// dump controller logs
-	GinkgoWriter.Println("\n--- Controller Logs ---")
-	cmd := exec.Command("kubectl", "logs", "-n", SystemNamespace,
-		"deployment/mcp-controller", "--tail=50")
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		GinkgoWriter.Printf("Failed to get controller logs: %v\n", err)
-	} else {
-		GinkgoWriter.Printf("%s\n", output)
-	}
-
-	// dump broker/router logs
-	GinkgoWriter.Println("\n--- Broker/Router Logs ---")
-	cmd = exec.Command("kubectl", "logs", "-n", SystemNamespace,
-		"deployment/mcp-broker-router", "--tail=100")
-	output, err = cmd.CombinedOutput()
-	if err != nil {
-		GinkgoWriter.Printf("Failed to get broker/router logs: %v\n", err)
-	} else {
-		GinkgoWriter.Printf("%s\n", output)
-	}
-
-	// dump configmap content
-	GinkgoWriter.Println("\n--- ConfigMap Content ---")
-	cmd = exec.Command("kubectl", "get", "configmap", "-n", SystemNamespace,
-		ConfigMapName, "-o", "yaml")
-	output, err = cmd.CombinedOutput()
-	if err != nil {
-		GinkgoWriter.Printf("Failed to get configmap: %v\n", err)
-	} else {
-		GinkgoWriter.Printf("%s\n", output)
-	}
-
-	// dump pod status
-	GinkgoWriter.Println("\n--- Pod Status ---")
-	cmd = exec.Command("kubectl", "get", "pods", "-n", SystemNamespace, "-o", "wide")
-	output, err = cmd.CombinedOutput()
-	if err != nil {
-		GinkgoWriter.Printf("Failed to get pod status: %v\n", err)
-	} else {
-		GinkgoWriter.Printf("%s\n", output)
-	}
-
-	// dump events
-	GinkgoWriter.Println("\n--- Recent Events ---")
-	cmd = exec.Command("kubectl", "get", "events", "-n", SystemNamespace,
-		"--sort-by=lastTimestamp", "--tail=20")
-	output, err = cmd.CombinedOutput()
-	if err != nil {
-		GinkgoWriter.Printf("Failed to get events: %v\n", err)
-	} else {
-		GinkgoWriter.Printf("%s\n", output)
-	}
-
-	GinkgoWriter.Println("=== End Component Logs ===")
-}
-
-// DumpTestServerLogs dumps logs for test MCP servers
-func DumpTestServerLogs() {
-	GinkgoWriter.Println("\n=== Test Server Logs ===")
-
-	servers := []string{"mcp-test-server1", "mcp-test-server2", "mcp-test-server3"}
-	for _, server := range servers {
-		GinkgoWriter.Printf("\n--- %s Logs ---\n", server)
-		cmd := exec.Command("kubectl", "logs", "-n", TestNamespace,
-			fmt.Sprintf("deployment/%s", server), "--tail=30")
-		output, err := cmd.CombinedOutput()
-		if err != nil {
-			GinkgoWriter.Printf("Failed to get %s logs: %v\n", server, err)
-		} else {
-			GinkgoWriter.Printf("%s\n", output)
-		}
-	}
-
-	GinkgoWriter.Println("=== End Test Server Logs ===")
-}
-
 // UniqueName generates a unique name with the given prefix.
 func UniqueName(prefix string) string {
 	b := make([]byte, 4)
@@ -710,28 +624,6 @@ func WaitForDeploymentReady(namespace, name string, expectedReplicas int) error 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("deployment %s not ready: %s: %w", name, string(output), err)
-	}
-	return nil
-}
-
-// WaitForDeploymentScaledDown waits for a deployment to have 0 available replicas
-func WaitForDeploymentScaledDown(namespace, name string) error {
-	cmd := exec.Command("kubectl", "wait", "deployment", name,
-		"-n", namespace, "--for=jsonpath={.status.availableReplicas}=0", "--timeout=60s")
-	// kubectl wait doesn't work well with 0 replicas, use rollout status instead
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		// fallback: check replicas directly
-		checkCmd := exec.Command("kubectl", "get", "deployment", name,
-			"-n", namespace, "-o", "jsonpath={.status.availableReplicas}")
-		checkOutput, checkErr := checkCmd.CombinedOutput()
-		if checkErr != nil {
-			return fmt.Errorf("failed to check deployment %s: %s: %w", name, string(output), err)
-		}
-		if strings.TrimSpace(string(checkOutput)) == "" || strings.TrimSpace(string(checkOutput)) == "0" {
-			return nil
-		}
-		return fmt.Errorf("deployment %s still has replicas: %s", name, string(checkOutput))
 	}
 	return nil
 }

@@ -43,9 +43,6 @@ var _ = Describe("MCP Gateway Registration Happy Path", func() {
 		// dump logs if test failed
 		if CurrentSpecReport().Failed() {
 			GinkgoWriter.Println("failure detected")
-
-			//	DumpComponentLogs()
-			//	DumpTestServerLogs()
 		}
 	})
 

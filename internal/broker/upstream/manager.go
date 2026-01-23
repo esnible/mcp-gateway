@@ -55,7 +55,6 @@ type MCP interface {
 	OnNotification(func(notification mcp.JSONRPCNotification))
 	OnConnectionLost(func(err error))
 	Ping(context.Context) error
-	ProtocolInfo() *mcp.InitializeResult
 }
 
 // MCPManager manages a single backend MCPServer for the broker. It does not act on behalf of clients. It is the only thing that should be connecting to the MCP Server for the broker. It handles tools updates, disconnection, notifications, liveness checks and updating the status for the MCP server. It is responsible for adding and removing tools to the broker. It is intended to be long lived and have 1:1 relationship with a backend MCP server.

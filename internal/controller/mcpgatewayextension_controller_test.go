@@ -162,7 +162,7 @@ func (m *mockConfigWriterDeleter) DeleteConfig(ctx context.Context, namespaceNam
 	return nil
 }
 
-func (m *mockConfigWriterDeleter) WriteEmptyConfig(ctx context.Context, namespaceName types.NamespacedName) error {
+func (m *mockConfigWriterDeleter) EnsureConfigExists(ctx context.Context, namespaceName types.NamespacedName) error {
 	return nil
 }
 

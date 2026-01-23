@@ -37,14 +37,6 @@ func newMockMCPServerConfigReaderWriter() *mockMCPServerConfigReaderWriter {
 	}
 }
 
-func (m *mockMCPServerConfigReaderWriter) WriteMCPServerConfig(ctx context.Context, servers []config.MCPServer, namespaceName types.NamespacedName) error {
-	return nil
-}
-
-func (m *mockMCPServerConfigReaderWriter) WriteEmptyConfig(ctx context.Context, namespaceName types.NamespacedName) error {
-	return nil
-}
-
 func (m *mockMCPServerConfigReaderWriter) UpsertMCPServer(ctx context.Context, server config.MCPServer, namespaceName types.NamespacedName) error {
 	key := fmt.Sprintf("%s/%s", namespaceName.Namespace, server.Name)
 	m.upsertedServers[key] = server
@@ -402,7 +394,7 @@ var _ = Describe("MCPServerRegistration Controller", func() {
 				g.Expect(cond.Message).To(ContainSubstring("no valid mcpgatewayextensions"))
 			}, testTimeout, testRetryInterval).Should(Succeed())
 
-			// verify no config was upserted
+			// verify no config
 			Expect(configWriter.upsertedServers).To(BeEmpty())
 		})
 	})

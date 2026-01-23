@@ -66,8 +66,6 @@ type ServerInfo struct {
 }
 
 type MCPServerConfigReaderWriter interface {
-	WriteMCPServerConfig(ctx context.Context, servers []config.MCPServer, namespaceName types.NamespacedName) error
-	WriteEmptyConfig(ctx context.Context, namespaceName types.NamespacedName) error
 	UpsertMCPServer(ctx context.Context, server config.MCPServer, namespaceName types.NamespacedName) error
 	// RemoveMCPServer removes a server from all config secrets cluster-wide
 	RemoveMCPServer(ctx context.Context, serverName string) error
@@ -116,7 +114,7 @@ func (r *MCPReconciler) Reconcile(ctx context.Context, req reconcile.Request) (r
 			controllerutil.RemoveFinalizer(mcpsr, mcpGatewayFinalizer)
 			if err := r.Update(ctx, mcpsr); err != nil {
 				if errors.IsConflict(err) {
-					logger.V(1).Info("conflict err requing to retry")
+					logger.V(1).Info("conflict err requeuing to retry")
 					return ctrl.Result{RequeueAfter: defaultRequeueTime}, nil
 				}
 				return ctrl.Result{}, err
@@ -130,7 +128,7 @@ func (r *MCPReconciler) Reconcile(ctx context.Context, req reconcile.Request) (r
 		if controllerutil.AddFinalizer(mcpsr, mcpGatewayFinalizer) {
 			if err := r.Update(ctx, mcpsr); err != nil {
 				if errors.IsConflict(err) {
-					logger.V(1).Info("conflict err requing to retry")
+					logger.V(1).Info("conflict err requeuing to retry")
 					return ctrl.Result{RequeueAfter: defaultRequeueTime}, nil
 				}
 				return ctrl.Result{}, err
@@ -439,7 +437,7 @@ func (r *MCPReconciler) setMCPServerRegistrationStatus(ctx context.Context, mcps
 			log.Error(err, "Failed to update HTTPRoute status")
 		}
 		if !gatewayServerStatus.Ready {
-			return fmt.Errorf(message)
+			return fmt.Errorf("%s", message)
 		}
 		log.V(1).Info("server is ready")
 		return nil
@@ -450,7 +448,7 @@ func (r *MCPReconciler) setMCPServerRegistrationStatus(ctx context.Context, mcps
 		return err
 	}
 
-	return fmt.Errorf(message)
+	return fmt.Errorf("%s", message)
 }
 
 func (r *MCPReconciler) buildMCPServerConfig(ctx context.Context, targetRoute *gatewayv1.HTTPRoute, mcpsr *mcpv1alpha1.MCPServerRegistration) (*config.MCPServer, error) {
@@ -477,7 +475,7 @@ func (r *MCPReconciler) buildMCPServerConfig(ctx context.Context, targetRoute *g
 			Namespace: mcpsr.Namespace,
 		}, secret)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read credential ref sercret when building config %w", err)
+			return nil, fmt.Errorf("failed to read credential ref secret when building config %w", err)
 		}
 		val, ok := secret.Data[mcpsr.Spec.CredentialRef.Key]
 		if !ok {
@@ -962,7 +960,7 @@ func (r *MCPReconciler) updateStatus(
 
 // SetupWithManager sets up the reconciler
 func (r *MCPReconciler) SetupWithManager(mgr ctrl.Manager, ctx context.Context) error {
-	if err := setupIndexMCPRegisrtrationToHTTPRoute(ctx, mgr.GetFieldIndexer()); err != nil {
+	if err := setupIndexMCPRegistrationToHTTPRoute(ctx, mgr.GetFieldIndexer()); err != nil {
 		return fmt.Errorf("failed to setup required index from MCPServerRegistration to httproutes %w", err)
 	}
 
@@ -1021,7 +1019,7 @@ func setupIndexProgrammedHTTPRoutes(ctx context.Context, indexer client.FieldInd
 	return nil
 }
 
-func setupIndexMCPRegisrtrationToHTTPRoute(ctx context.Context, indexer client.FieldIndexer) error {
+func setupIndexMCPRegistrationToHTTPRoute(ctx context.Context, indexer client.FieldIndexer) error {
 	if err := indexer.IndexField(ctx, &mcpv1alpha1.MCPServerRegistration{}, HTTPRouteIndex, func(rawObj client.Object) []string {
 		mcpsr := rawObj.(*mcpv1alpha1.MCPServerRegistration)
 		targetRef := mcpsr.Spec.TargetRef

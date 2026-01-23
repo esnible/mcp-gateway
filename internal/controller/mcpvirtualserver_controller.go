@@ -67,7 +67,7 @@ func (r *MCPVirtualServerReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		if controllerutil.AddFinalizer(mcpVS, mcpGatewayFinalizer) {
 			if err := r.Update(ctx, mcpVS); err != nil {
 				if errors.IsConflict(err) {
-					logger.V(1).Info("mcpvirtualserver conflict err requing")
+					logger.V(1).Info("mcpvirtualserver conflict err requeuing")
 					return ctrl.Result{RequeueAfter: defaultRequeueTime}, err
 				}
 				return ctrl.Result{}, err

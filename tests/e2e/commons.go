@@ -503,7 +503,7 @@ func CleanupResource(ctx context.Context, k8sClient client.Client, obj client.Ob
 func UniqueName(prefix string) string {
 	b := make([]byte, 4)
 	_, _ = rand.Read(b)
-	return prefix + "-"+hex.EncodeToString(b)
+	return prefix + "-" + hex.EncodeToString(b)
 }
 
 // NotifyingMCPClient wraps an MCP client with notification handling

@@ -43,6 +43,7 @@ type MCPGatewayExtensionReconciler struct {
 	Scheme              *runtime.Scheme
 	log                 logr.Logger
 	ConfigWriterDeleter ConfigWriterDeleter
+	MCPExtFinderValidator MCPGatewayExtensionFinderValidator
 }
 
 // +kubebuilder:rbac:groups=mcp.kagenti.com,resources=mcpgatewayextensions,verbs=get;list;watch;create;update;patch;delete
@@ -107,7 +108,7 @@ func (r *MCPGatewayExtensionReconciler) Reconcile(ctx context.Context, req ctrl.
 
 	// not in same namespace - check for a valid ReferenceGrant
 	if !inSameNS {
-		hasGrant, err := r.hasValidReferenceGrant(ctx, mcpExt)
+		hasGrant, err := r.MCPExtFinderValidator.HasValidReferenceGrant(ctx, mcpExt)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -184,60 +185,6 @@ func (r *MCPGatewayExtensionReconciler) gatewayTarget(ctx context.Context, targe
 		return nil, fmt.Errorf("failed to find gateway targeted by the mcpgatewayextension %w", err)
 	}
 	return g, nil
-}
-
-// hasValidReferenceGrant checks if a valid ReferenceGrant exists that allows the MCPGatewayExtension
-// to reference a Gateway in a different namespace
-func (r *MCPGatewayExtensionReconciler) hasValidReferenceGrant(ctx context.Context, mcpExt *mcpv1alpha1.MCPGatewayExtension) (bool, error) {
-	// list ReferenceGrants in the target Gateway's namespace
-	refGrantList := &gatewayv1beta1.ReferenceGrantList{}
-	if err := r.List(ctx, refGrantList, client.InNamespace(mcpExt.Spec.TargetRef.Namespace)); err != nil {
-		return false, fmt.Errorf("failed to list ReferenceGrants: %w", err)
-	}
-
-	for _, rg := range refGrantList.Items {
-		if r.referenceGrantAllows(&rg, mcpExt) {
-			return true, nil
-		}
-	}
-	return false, nil
-}
-
-// referenceGrantAllows checks if a ReferenceGrant permits the MCPGatewayExtension to reference a Gateway
-func (r *MCPGatewayExtensionReconciler) referenceGrantAllows(rg *gatewayv1beta1.ReferenceGrant, mcpExt *mcpv1alpha1.MCPGatewayExtension) bool {
-	fromAllowed := false
-	toAllowed := false
-
-	// check if 'from' allows MCPGatewayExtension from its namespace
-	for _, from := range rg.Spec.From {
-		if string(from.Group) == mcpv1alpha1.GroupVersion.Group &&
-			string(from.Kind) == "MCPGatewayExtension" &&
-			string(from.Namespace) == mcpExt.Namespace {
-			fromAllowed = true
-			break
-		}
-	}
-
-	if !fromAllowed {
-		return false
-	}
-
-	// check if 'to' allows Gateway references
-	for _, to := range rg.Spec.To {
-		// empty group means core, but Gateway is in gateway.networking.k8s.io
-		if string(to.Group) == gatewayv1.GroupVersion.Group {
-			// empty kind means all kinds in the group, or specific Gateway kind
-			if to.Kind == "" || string(to.Kind) == "Gateway" {
-				// if name is specified, it must match; empty means all
-				if to.Name == nil || *to.Name == "" || string(*to.Name) == mcpExt.Spec.TargetRef.Name {
-					toAllowed = true
-					break
-				}
-			}
-		}
-	}
-
-	return toAllowed
 }
 
 func mcpExtToRefGrantIndexValue(mext mcpv1alpha1.MCPGatewayExtension) string {

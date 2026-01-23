@@ -69,11 +69,16 @@ func main() {
 		Logger: &ctrl.Log,
 	}
 
+	mcpExtFinderValidator := &controller.MCPGatewayExtensionValidator{
+		Client: mgr.GetClient(),
+	}
+
 	if err = (&controller.MCPReconciler{
 		Client:             mgr.GetClient(),
 		Scheme:             mgr.GetScheme(),
 		DirectAPIReader:    mgr.GetAPIReader(),
 		ConfigReaderWriter: &configReaderWriter,
+		MCPExtFinderValidator: mcpExtFinderValidator,
 	}).SetupWithManager(mgr, ctx); err != nil {
 		panic("unable to start manager : " + err.Error())
 	}
@@ -83,6 +88,7 @@ func main() {
 		Scheme:              mgr.GetScheme(),
 		DirectAPIReader:     mgr.GetAPIReader(),
 		ConfigWriterDeleter: &configReaderWriter,
+		MCPExtFinderValidator: mcpExtFinderValidator,
 	}).SetupWithManager(ctx, mgr); err != nil {
 		panic("unable to start manager : " + err.Error())
 	}

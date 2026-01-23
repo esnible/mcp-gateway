@@ -24,7 +24,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	mcpv1alpha1 "github.com/Kuadrant/mcp-gateway/api/v1alpha1"
 	"github.com/Kuadrant/mcp-gateway/internal/broker/upstream"
@@ -67,6 +66,7 @@ type MCPReconciler struct {
 	Scheme             *runtime.Scheme
 	DirectAPIReader    client.Reader // uncached reader for fetching secrets
 	ConfigReaderWriter MCPServerConfigReaderWriter
+	MCPExtFinderValidator MCPGatewayExtensionFinderValidator
 }
 
 // +kubebuilder:rbac:groups=mcp.kagenti.com,resources=mcpserverregistrations,verbs=get;list;watch;create;update;patch;delete
@@ -173,7 +173,7 @@ func (r *MCPReconciler) Reconcile(ctx context.Context, req reconcile.Request) (r
 	// is there a valid mcpgatewayextension
 	validNamespaces := []string{}
 	for _, vg := range validGateways {
-		validMcpGatewayExtensions, err := r.findValidMCPGatewayExtsForGateway(ctx, vg)
+		validMcpGatewayExtensions, err := r.MCPExtFinderValidator.FindValidMCPGatewayExtsForGateway(ctx, vg)
 		if err != nil {
 			logger.Error(err, "failed to find valid mcpgatewayextension ", "gateway", vg, "mcpserverregistration", mcpsr)
 			if err := r.updateStatus(ctx, mcpsr, false, err.Error(), 0); err != nil {
@@ -247,92 +247,6 @@ func mcpServerName(mcp *mcpv1alpha1.MCPServerRegistration) string {
 		mcp.Namespace,
 		mcp.Name,
 	)
-}
-
-// TODO these duplicates code from the mcpgatewayextension reconcile. Deduplicate
-// findValidMCPGatewayExtsForGateway will find all MCPGatewayExtensions indexed against passed Gateway instance
-func (r *MCPReconciler) findValidMCPGatewayExtsForGateway(ctx context.Context, g *gatewayv1.Gateway) ([]*mcpv1alpha1.MCPGatewayExtension, error) {
-	logger := logf.FromContext(ctx).WithName("findValidMCPGatewayExtsForGateway")
-	validExtensions := []*mcpv1alpha1.MCPGatewayExtension{}
-	mcpGatewayExtList := &mcpv1alpha1.MCPGatewayExtensionList{}
-	if err := r.List(ctx, mcpGatewayExtList,
-		client.MatchingFields{gatewayIndexKey: gatewayToMCPExtIndexValue(*g)},
-	); err != nil {
-		return validExtensions, err
-	}
-	logger.V(1).Info("found mcpgatewayextensions", "total", len(mcpGatewayExtList.Items))
-	for _, mg := range mcpGatewayExtList.Items {
-
-		if mg.Namespace == g.Namespace {
-			validExtensions = append(validExtensions, &mg)
-			continue
-		}
-		has, err := r.hasValidReferenceGrant(ctx, &mg)
-		if err != nil {
-			// we have to exit here
-			return validExtensions, fmt.Errorf("failed to check if mcpgatewayextension is valid %w", err)
-		}
-		if has && meta.IsStatusConditionTrue(mg.Status.Conditions, mcpv1alpha1.ConditionTypeReady) {
-			validExtensions = append(validExtensions, &mg)
-		}
-	}
-	// next we need to check is this mcpgateway in the same namespace as the gateway if it is it is valid
-	// we also need to check if there is a reference grant in the namespace
-	return validExtensions, nil
-}
-
-// hasValidReferenceGrant checks if a valid ReferenceGrant exists that allows the MCPGatewayExtension
-// to reference a Gateway in a different namespace
-func (r *MCPReconciler) hasValidReferenceGrant(ctx context.Context, mcpExt *mcpv1alpha1.MCPGatewayExtension) (bool, error) {
-	// list ReferenceGrants in the target Gateway's namespace
-	refGrantList := &gatewayv1beta1.ReferenceGrantList{}
-	if err := r.List(ctx, refGrantList, client.InNamespace(mcpExt.Spec.TargetRef.Namespace)); err != nil {
-		return false, fmt.Errorf("failed to list ReferenceGrants: %w", err)
-	}
-
-	for _, rg := range refGrantList.Items {
-		if r.referenceGrantAllows(&rg, mcpExt) {
-			return true, nil
-		}
-	}
-	return false, nil
-}
-
-// referenceGrantAllows checks if a ReferenceGrant permits the MCPGatewayExtension to reference a Gateway
-func (r *MCPReconciler) referenceGrantAllows(rg *gatewayv1beta1.ReferenceGrant, mcpExt *mcpv1alpha1.MCPGatewayExtension) bool {
-	fromAllowed := false
-	toAllowed := false
-
-	// check if 'from' allows MCPGatewayExtension from its namespace
-	for _, from := range rg.Spec.From {
-		if string(from.Group) == mcpv1alpha1.GroupVersion.Group &&
-			string(from.Kind) == "MCPGatewayExtension" &&
-			string(from.Namespace) == mcpExt.Namespace {
-			fromAllowed = true
-			break
-		}
-	}
-
-	if !fromAllowed {
-		return false
-	}
-
-	// check if 'to' allows Gateway references
-	for _, to := range rg.Spec.To {
-		// empty group means core, but Gateway is in gateway.networking.k8s.io
-		if string(to.Group) == gatewayv1.GroupVersion.Group {
-			// empty kind means all kinds in the group, or specific Gateway kind
-			if to.Kind == "" || string(to.Kind) == "Gateway" {
-				// if name is specified, it must match; empty means all
-				if to.Name == nil || *to.Name == "" || string(*to.Name) == mcpExt.Spec.TargetRef.Name {
-					toAllowed = true
-					break
-				}
-			}
-		}
-	}
-
-	return toAllowed
 }
 
 // findValidGatewaysForMCPServer returns the gateways the httproute targeted by the MCPServerRegistration is the child of
@@ -866,7 +780,7 @@ func (r *MCPReconciler) SetupWithManager(mgr ctrl.Manager, ctx context.Context) 
 			&corev1.Secret{},
 			handler.EnqueueRequestsFromMapFunc(r.findMCPServerRegistrationsForSecret),
 			builder.WithPredicates(predicate.NewPredicateFuncs(func(obj client.Object) bool {
-				// only watch secrets with the credential label
+				// TODO add a cache filter
 				secret := obj.(*corev1.Secret)
 				return secret.Labels != nil && secret.Labels[CredentialSecretLabel] == CredentialSecretValue
 			})),

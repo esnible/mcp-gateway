@@ -1,22 +1,18 @@
-# MCP Server Configuration
+# MCP Server Registration
 
-This guide covers configuring MCP servers to be discovered and routed by MCP Gateway.
+You must register your MCP servers to be discovered and routed by the MCP Gateway. To connect an MCP server to MCP Gateway, you must create an `HTTPRoute` that routes to your MCP server and an `MCPServerRegistration` resource that references the `HTTPRoute`.
 
 ## Prerequisites
 
-- MCP Gateway installed and configured
-- Gateway and HTTPRoute configured for MCP Gateway
-- An existing MCP server running in your cluster
+- You installed and configured the MCP Gateway
+- You configured a gateway and `HTTPRoute` for the MCP Gateway
+- An MCP server is running in your cluster
 
-## Overview
+## Procedure
 
-To connect an MCP server to MCP Gateway, you need:
-1. An HTTPRoute that routes to your MCP server
-2. An MCPServerRegistration resource that references the HTTPRoute
+### Step 1: Create HTTPRoute for Your MCP Server
 
-## Step 1: Create HTTPRoute for Your MCP Server
-
-Create an HTTPRoute that routes to your MCP server:
+Create an `HTTPRoute` that routes to your MCP server:
 
 ```bash
 kubectl apply -f - <<EOF
@@ -44,9 +40,9 @@ spec:
 EOF
 ```
 
-## Step 2: Create MCPServerRegistration Resource
+### Step 2: Create MCPServerRegistration Resource
 
-Create an MCPServerRegistration resource that references the HTTPRoute:
+Create an `MCPServerRegistration` resource that references the HTTPRoute:
 
 ```bash
 kubectl apply -f - <<EOF
@@ -65,9 +61,9 @@ spec:
 EOF
 ```
 
-## Step 3: Verify Configuration
+### Step 3: Verify Registration
 
-Check that the MCPServerRegistration was created and discovered:
+Check that the `MCPServerRegistration` was created and discovered:
 
 ```bash
 # Check MCPServerRegistration status
@@ -80,9 +76,9 @@ kubectl logs -n mcp-system deployment/mcp-gateway-controller
 kubectl logs -n mcp-system deployment/mcp-gateway-broker-router | grep "Discovered tools"
 ```
 
-## Step 4: Test Tool Discovery
+### Step 4: Test Tool Discovery
 
-Verify that your MCP server tools are now available through the gateway:
+Verify that your MCP server tools are available through the gateway by using the following commands:
 
 ```bash
 # Step 1: Initialize MCP session and capture session ID
@@ -110,8 +106,8 @@ You should now see your MCP server tools in the response, prefixed with your con
 
 ## Next Steps
 
-Once you have MCP servers configured, you can explore advanced features:
+After you have MCP servers registered, you can explore advanced features:
 
-- **[Virtual MCP Servers](./virtual-mcp-servers.md)** - Create focused tool collections
-- **[Authentication](./authentication.md)** - Configure OAuth-based security
-- **[Authorization](./authorization.md)** - Set up fine-grained access control
+- Create focused tool collections with **[Virtual MCP Servers](./virtual-mcp-servers.md)**
+- Configure OAuth-based security with **[Authentication](./authentication.md)**
+- Set up fine-grained access control with **[Authorization](./authorization.md)**

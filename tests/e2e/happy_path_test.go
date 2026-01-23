@@ -5,6 +5,7 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -13,7 +14,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var gatewayURL = "http://localhost:8001/mcp"
+var gatewayURL = func() string {
+	if url := os.Getenv("GATEWAY_URL"); url != "" {
+		return url
+	}
+	return "http://localhost:8001/mcp"
+}()
 
 // these can be used across many tests
 var sharedMCPTestServer1 = "mcp-test-server1"

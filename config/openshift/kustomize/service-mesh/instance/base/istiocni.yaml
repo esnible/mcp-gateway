@@ -5,4 +5,4 @@ metadata:
   name: default
 spec:
   namespace: istio-cni
-  version: v1.26.4
+  version: v1.26-latest

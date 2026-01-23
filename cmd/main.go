@@ -74,20 +74,20 @@ func main() {
 	}
 
 	if err = (&controller.MCPReconciler{
-		Client:             mgr.GetClient(),
-		Scheme:             mgr.GetScheme(),
-		DirectAPIReader:    mgr.GetAPIReader(),
-		ConfigReaderWriter: &configReaderWriter,
+		Client:                mgr.GetClient(),
+		Scheme:                mgr.GetScheme(),
+		DirectAPIReader:       mgr.GetAPIReader(),
+		ConfigReaderWriter:    &configReaderWriter,
 		MCPExtFinderValidator: mcpExtFinderValidator,
 	}).SetupWithManager(mgr, ctx); err != nil {
 		panic("unable to start manager : " + err.Error())
 	}
 
 	if err = (&controller.MCPGatewayExtensionReconciler{
-		Client:              mgr.GetClient(),
-		Scheme:              mgr.GetScheme(),
-		DirectAPIReader:     mgr.GetAPIReader(),
-		ConfigWriterDeleter: &configReaderWriter,
+		Client:                mgr.GetClient(),
+		Scheme:                mgr.GetScheme(),
+		DirectAPIReader:       mgr.GetAPIReader(),
+		ConfigWriterDeleter:   &configReaderWriter,
 		MCPExtFinderValidator: mcpExtFinderValidator,
 	}).SetupWithManager(ctx, mgr); err != nil {
 		panic("unable to start manager : " + err.Error())

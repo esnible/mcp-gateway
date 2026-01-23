@@ -63,9 +63,9 @@ type MCPServerConfigReaderWriter interface {
 // MCPReconciler reconciles both MCPServerRegistration and MCPVirtualServer resources
 type MCPReconciler struct {
 	client.Client
-	Scheme             *runtime.Scheme
-	DirectAPIReader    client.Reader // uncached reader for fetching secrets
-	ConfigReaderWriter MCPServerConfigReaderWriter
+	Scheme                *runtime.Scheme
+	DirectAPIReader       client.Reader // uncached reader for fetching secrets
+	ConfigReaderWriter    MCPServerConfigReaderWriter
 	MCPExtFinderValidator MCPGatewayExtensionFinderValidator
 }
 
@@ -392,171 +392,102 @@ func (r *MCPReconciler) buildMCPServerConfig(ctx context.Context, targetRoute *g
 }
 
 func (r *MCPReconciler) buildServerInfoFromHTTPRoute(ctx context.Context, httpRoute *gatewayv1.HTTPRoute, path string) (*ServerInfo, error) {
+	route := WrapHTTPRoute(httpRoute)
 
-	if len(httpRoute.Spec.Rules) == 0 || len(httpRoute.Spec.Rules[0].BackendRefs) == 0 {
-		return nil, fmt.Errorf("HTTPRoute %s/%s has no backend references", httpRoute.Namespace, httpRoute.Name)
+	if err := route.Validate(); err != nil {
+		return nil, err
 	}
 
-	if len(httpRoute.Spec.Rules) > 1 {
-		return nil, fmt.Errorf(
-			"HTTPRoute %s/%s has > 1 rule, which is unsupported", httpRoute.Namespace, httpRoute.Name)
-	}
+	var endpoint, routingHostname string
 
-	if len(httpRoute.Spec.Rules[0].BackendRefs) > 1 {
-		return nil, fmt.Errorf("HTTPRoute %s/%s has > 1 backend reference, which is unsupported", httpRoute.Namespace, httpRoute.Name)
-	}
+	if route.IsHostnameBackend() {
+		log.FromContext(ctx).V(1).Info("processing external service via Hostname backendRef", "host", route.BackendName())
 
-	backendRef := httpRoute.Spec.Rules[0].BackendRefs[0]
-	if backendRef.Name == "" {
-		return nil, fmt.Errorf("HTTPRoute %s/%s backend reference has no name", httpRoute.Namespace, httpRoute.Name)
-	}
-
-	kind := "Service"
-	if backendRef.Kind != nil {
-		kind = string(*backendRef.Kind)
-	}
-
-	group := ""
-	if backendRef.Group != nil {
-		group = string(*backendRef.Group)
-	}
-
-	// handle Istio Hostname backendRef for external services
-	if kind == "Hostname" && group == "networking.istio.io" {
-		log.FromContext(ctx).V(1).Info("processing external service via Hostname backendRef", "host", backendRef.Name)
-		return r.buildServerInfoForHostnameBackend(httpRoute, backendRef, path)
-	}
-
-	if kind != "Service" {
-		return nil, fmt.Errorf("backend reference is not a Service: %s", kind)
-	}
-
-	// Determine service namespace, default to HTTPRoute namespace
-	serviceNamespace := httpRoute.Namespace
-	if backendRef.Namespace != nil {
-		serviceNamespace = string(*backendRef.Namespace)
-	}
-
-	// check service type
-	backendName := string(backendRef.Name)
-	var nameAndEndpoint string
-	isExternal := false
-
-	service := &corev1.Service{}
-	err := r.Get(ctx, types.NamespacedName{
-		Name:      backendName,
-		Namespace: serviceNamespace,
-	}, service)
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to get service %s: %w", backendName, err)
-	}
-
-	// Extract hostname from HTTPRoute
-	if len(httpRoute.Spec.Hostnames) == 0 {
-		return nil, fmt.Errorf(
-			"HTTPRoute %s/%s must have at least one hostname for MCP backend routing", httpRoute.Namespace, httpRoute.Name)
-	}
-	// use first hostname if multiple are present
-	hostname := string(httpRoute.Spec.Hostnames[0])
-
-	if service.Spec.Type == corev1.ServiceTypeExternalName {
-		// externalname service points to external host
-		isExternal = true
-		externalName := service.Spec.ExternalName
-		if backendRef.Port != nil {
-			nameAndEndpoint = fmt.Sprintf("%s:%d", externalName, *backendRef.Port)
-		} else {
-			nameAndEndpoint = externalName
+		if !isValidHostname(route.BackendName()) {
+			return nil, fmt.Errorf("invalid hostname in backendRef: %s", route.BackendName())
 		}
+
+		port := "443"
+		if route.BackendPort() != nil {
+			port = fmt.Sprintf("%d", *route.BackendPort())
+		}
+
+		endpoint = fmt.Sprintf("https://%s%s", net.JoinHostPort(route.BackendName(), port), path)
+		routingHostname = route.FirstHostname()
+
+	} else if route.IsServiceBackend() {
+		service := &corev1.Service{}
+		if err := r.Get(ctx, types.NamespacedName{
+			Name:      route.BackendName(),
+			Namespace: route.BackendNamespace(),
+		}, service); err != nil {
+			return nil, fmt.Errorf("failed to get service %s: %w", route.BackendName(), err)
+		}
+
+		endpoint, routingHostname = r.buildServiceEndpoint(route, service, path)
+
 	} else {
-		// regular k8s service
-		serviceDNSName := fmt.Sprintf("%s.%s.svc.cluster.local", backendRef.Name, serviceNamespace)
-		if backendRef.Port != nil {
-			nameAndEndpoint = fmt.Sprintf("%s:%d", serviceDNSName, *backendRef.Port)
-		} else {
-			nameAndEndpoint = serviceDNSName
-		}
+		return nil, fmt.Errorf("unsupported backend reference kind: %s", route.BackendKind())
 	}
-
-	protocol := "http"
-	if httpRoute.Spec.ParentRefs != nil {
-		for _, parentRef := range httpRoute.Spec.ParentRefs {
-			if parentRef.SectionName != nil &&
-				strings.Contains(string(*parentRef.SectionName), "https") {
-				protocol = "https"
-				break
-			}
-		}
-	}
-
-	// determine protocol for external services
-	if isExternal {
-		// use appProtocol from Service spec (standard k8s field)
-		for _, port := range service.Spec.Ports {
-			if backendRef.Port != nil && port.Port == *backendRef.Port {
-				if port.AppProtocol != nil && strings.ToLower(*port.AppProtocol) == "https" {
-					protocol = "https"
-				}
-				break
-			}
-		}
-	}
-
-	endpoint := fmt.Sprintf("%s://%s%s", protocol, nameAndEndpoint, path)
-
-	routingHostname := hostname
-	if isExternal {
-		// extract hostname without port
-		if idx := strings.LastIndex(nameAndEndpoint, ":"); idx != -1 {
-			routingHostname = nameAndEndpoint[:idx]
-		} else {
-			routingHostname = nameAndEndpoint
-		}
-	}
-
-	serverInfo := ServerInfo{
-		Endpoint:           endpoint,
-		Hostname:           routingHostname,
-		HTTPRouteName:      httpRoute.Name,
-		HTTPRouteNamespace: httpRoute.Namespace,
-		Credential:         "",
-	}
-	return &serverInfo, nil
-}
-
-// buildServerInfoForHostnameBackend handles Istio Hostname backendRef for external services
-func (r *MCPReconciler) buildServerInfoForHostnameBackend(
-	httpRoute *gatewayv1.HTTPRoute,
-	backendRef gatewayv1.HTTPBackendRef,
-	path string,
-) (*ServerInfo, error) {
-	namespace := httpRoute.Namespace
-	httpRouteName := httpRoute.Name
-	if len(httpRoute.Spec.Hostnames) == 0 {
-		return nil, fmt.Errorf("HTTPRoute %s/%s must have at least one hostname", namespace, httpRouteName)
-	}
-
-	externalHost := string(backendRef.Name)
-	if !isValidHostname(externalHost) {
-		return nil, fmt.Errorf("invalid hostname in backendRef: %s", externalHost)
-	}
-
-	port := "443"
-	if backendRef.Port != nil {
-		port = fmt.Sprintf("%d", *backendRef.Port)
-	}
-
-	endpoint := fmt.Sprintf("https://%s%s", net.JoinHostPort(externalHost, port), path)
-	routingHostname := string(httpRoute.Spec.Hostnames[0])
 
 	return &ServerInfo{
 		Endpoint:           endpoint,
 		Hostname:           routingHostname,
-		HTTPRouteName:      httpRouteName,
-		HTTPRouteNamespace: namespace,
+		HTTPRouteName:      route.Name,
+		HTTPRouteNamespace: route.Namespace,
 		Credential:         "",
 	}, nil
+}
+
+// buildServiceEndpoint builds the endpoint URL and routing hostname for a Service backend
+func (r *MCPReconciler) buildServiceEndpoint(route *HTTPRouteWrapper, service *corev1.Service, path string) (endpoint, routingHostname string) {
+	isExternal := service.Spec.Type == corev1.ServiceTypeExternalName
+
+	var hostAndPort string
+	if isExternal {
+		hostAndPort = service.Spec.ExternalName
+	} else {
+		hostAndPort = fmt.Sprintf("%s.%s.svc.cluster.local", route.BackendName(), route.BackendNamespace())
+	}
+
+	if route.BackendPort() != nil {
+		hostAndPort = fmt.Sprintf("%s:%d", hostAndPort, *route.BackendPort())
+	}
+
+	protocol := r.determineProtocol(route, service, isExternal)
+	endpoint = fmt.Sprintf("%s://%s%s", protocol, hostAndPort, path)
+
+	if isExternal {
+		if idx := strings.LastIndex(hostAndPort, ":"); idx != -1 {
+			routingHostname = hostAndPort[:idx]
+		} else {
+			routingHostname = hostAndPort
+		}
+	} else {
+		routingHostname = route.FirstHostname()
+	}
+
+	return endpoint, routingHostname
+}
+
+// determineProtocol determines the protocol (http/https) for the service endpoint
+func (r *MCPReconciler) determineProtocol(route *HTTPRouteWrapper, service *corev1.Service, isExternal bool) string {
+	if isExternal {
+		for _, port := range service.Spec.Ports {
+			if route.BackendPort() != nil && port.Port == int32(*route.BackendPort()) {
+				if port.AppProtocol != nil && strings.ToLower(*port.AppProtocol) == "https" {
+					return "https"
+				}
+				break
+			}
+		}
+		return "http"
+	}
+
+	if route.UsesHTTPS() {
+		return "https"
+	}
+	return "http"
 }
 
 // validates hostname can't contain path injection

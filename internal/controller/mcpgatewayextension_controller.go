@@ -39,10 +39,10 @@ type ConfigWriterDeleter interface {
 // MCPGatewayExtensionReconciler reconciles a MCPGatewayExtension object
 type MCPGatewayExtensionReconciler struct {
 	client.Client
-	DirectAPIReader     client.Reader
-	Scheme              *runtime.Scheme
-	log                 logr.Logger
-	ConfigWriterDeleter ConfigWriterDeleter
+	DirectAPIReader       client.Reader
+	Scheme                *runtime.Scheme
+	log                   logr.Logger
+	ConfigWriterDeleter   ConfigWriterDeleter
 	MCPExtFinderValidator MCPGatewayExtensionFinderValidator
 }
 

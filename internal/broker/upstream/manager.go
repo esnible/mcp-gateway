@@ -98,6 +98,7 @@ func NewUpstreamMCPManager(upstream MCP, gatewaySever ToolsAdderDeleter, logger 
 		MCP:            upstream,
 		gatewayServer:  gatewaySever,
 		tickerInterval: tickerInterval,
+		ticker:         time.NewTicker(tickerInterval),
 		logger:         logger,
 		done:           make(chan struct{}),
 		toolsMap:       map[string]mcp.Tool{},
@@ -115,7 +116,7 @@ func (man *MCPManager) MCPName() string {
 // registers notification callbacks to handle tool list changes. This method blocks
 // until Stop is called or the context is cancelled.
 func (man *MCPManager) Start(ctx context.Context) {
-	man.ticker = time.NewTicker(man.tickerInterval)
+	man.ticker.Reset(man.tickerInterval)
 	man.manage(ctx)
 
 	for {
@@ -137,9 +138,7 @@ func (man *MCPManager) Start(ctx context.Context) {
 // goroutine to complete. Safe to call multiple times.
 func (man *MCPManager) Stop() {
 	man.stopOnce.Do(func() {
-		if man.ticker != nil {
-			man.ticker.Stop()
-		}
+		man.ticker.Stop()
 		man.removeTools()
 		if err := man.MCP.Disconnect(); err != nil {
 			man.logger.Error("failed to disconnect during stop", "upstream mcp server", man.MCP.ID(), "error", err)

@@ -3,6 +3,7 @@ package upstream
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/Kuadrant/mcp-gateway/internal/config"
 	"github.com/mark3labs/mcp-go/client"
@@ -15,7 +16,8 @@ import (
 // initialization state from the MCP handshake.
 type MCPServer struct {
 	*config.MCPServer
-	*client.Client
+	client  *client.Client
+	clientMu sync.RWMutex
 	headers map[string]string
 	init    *mcp.InitializeResult
 }
@@ -79,10 +81,14 @@ func (up *MCPServer) SupportsToolsListChanged() bool {
 // The initialization result is stored for later validation of protocol version
 // and capabilities.
 func (up *MCPServer) Connect(ctx context.Context, onConnection func()) error {
-	if up.Client != nil {
+	up.clientMu.RLock()
+	if up.client != nil {
+		up.clientMu.RUnlock()
 		//if we already have a valid connection nothing to do
 		return nil
 	}
+	up.clientMu.RUnlock()
+
 	options := []transport.StreamableHTTPCOption{
 		transport.WithContinuousListening(),
 		transport.WithHTTPHeaders(up.headers),
@@ -92,7 +98,11 @@ func (up *MCPServer) Connect(ctx context.Context, onConnection func()) error {
 	if err != nil {
 		return fmt.Errorf("failed to create client: %w", err)
 	}
-	up.Client = httpClient
+
+	up.clientMu.Lock()
+	up.client = httpClient
+	up.clientMu.Unlock()
+
 	// call on connection to register handlers etc
 	onConnection()
 
@@ -129,26 +139,57 @@ func (up *MCPServer) Connect(ctx context.Context, onConnection func()) error {
 // Disconnect closes the connection to the upstream MCP server. If no client
 // connection exists, this is a no-op and returns nil. It will unset the the client if it exists
 func (up *MCPServer) Disconnect() error {
-	if up.Client != nil {
-		if err := up.Close(); err != nil {
-			up.Client = nil
+	up.clientMu.Lock()
+	defer up.clientMu.Unlock()
+
+	if up.client != nil {
+		if err := up.client.Close(); err != nil {
+			up.client = nil
 			return fmt.Errorf("failed to close client %w", err)
 		}
 	}
-	up.Client = nil
+	up.client = nil
 	return nil
 }
 
 // OnNotification allows registering a notification handler func with the client
 func (up *MCPServer) OnNotification(handler func(notification mcp.JSONRPCNotification)) {
-	if up.Client != nil {
-		up.Client.OnNotification(handler)
+	up.clientMu.RLock()
+	defer up.clientMu.RUnlock()
+
+	if up.client != nil {
+		up.client.OnNotification(handler)
 	}
 }
 
 // OnConnectionLost allows registering a connection lost handler with the client
 func (up *MCPServer) OnConnectionLost(handler func(err error)) {
-	if up.Client != nil {
-		up.Client.OnConnectionLost(handler)
+	up.clientMu.RLock()
+	defer up.clientMu.RUnlock()
+
+	if up.client != nil {
+		up.client.OnConnectionLost(handler)
 	}
+}
+
+// Ping sends a ping request to the upstream MCP server to check connectivity
+func (up *MCPServer) Ping(ctx context.Context) error {
+	up.clientMu.RLock()
+	defer up.clientMu.RUnlock()
+
+	if up.client == nil {
+		return fmt.Errorf("client not connected")
+	}
+	return up.client.Ping(ctx)
+}
+
+// ListTools retrieves the list of available tools from the upstream MCP server
+func (up *MCPServer) ListTools(ctx context.Context, req mcp.ListToolsRequest) (*mcp.ListToolsResult, error) {
+	up.clientMu.RLock()
+	defer up.clientMu.RUnlock()
+
+	if up.client == nil {
+		return nil, fmt.Errorf("client not connected")
+	}
+	return up.client.ListTools(ctx, req)
 }

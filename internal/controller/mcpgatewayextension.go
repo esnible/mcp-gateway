@@ -12,6 +12,7 @@ import (
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
+// MCPGatewayExtensionValidator finds and validates MCPGatewayExtensions
 type MCPGatewayExtensionValidator struct {
 	client.Client
 }
@@ -101,6 +102,7 @@ func (r *MCPGatewayExtensionValidator) FindValidMCPGatewayExtsForGateway(ctx con
 	return validExtensions, nil
 }
 
+// MCPGatewayExtensionFinderValidator finds and validates MCPGatewayExtensions
 type MCPGatewayExtensionFinderValidator interface {
 	HasValidReferenceGrant(ctx context.Context, mcpExt *mcpv1alpha1.MCPGatewayExtension) (bool, error)
 	FindValidMCPGatewayExtsForGateway(ctx context.Context, g *gatewayv1.Gateway) ([]*mcpv1alpha1.MCPGatewayExtension, error)

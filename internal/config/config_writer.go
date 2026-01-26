@@ -53,9 +53,9 @@ type SecretReaderWriter struct {
 // DefaultNamespaceName is the default location for the MCP Gateway config secret.
 var DefaultNamespaceName = types.NamespacedName{Namespace: "mcp-system", Name: "mcp-gateway-config"}
 
-// ConfigNamespaceName returns the NamespacedName for the config secret in the given namespace.
+// NamespaceName returns the NamespacedName for the config secret in the given namespace.
 // The secret name is always "mcp-gateway-config".
-func ConfigNamespaceName(ns string) types.NamespacedName {
+func NamespaceName(ns string) types.NamespacedName {
 	return types.NamespacedName{Namespace: ns, Name: "mcp-gateway-config"}
 }
 

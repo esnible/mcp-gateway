@@ -5,6 +5,8 @@ version: 2
 run:
   timeout: 10m
   modules-download-mode: readonly
+  exclude-files:
+    - "zz_generated.*\\.go$"
     
 linters:
   enable:

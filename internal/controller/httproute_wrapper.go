@@ -1,3 +1,4 @@
+// Package controller holds the code for the kuberenetes controllers
 package controller
 
 import (
@@ -86,7 +87,7 @@ func (w *HTTPRouteWrapper) IsHostnameBackend() bool {
 	return w.BackendKind() == "Hostname" && w.BackendGroup() == "networking.istio.io"
 }
 
-// IsServiceBackend returns true if the backend is a Kubernetes Service
+// IsServiceBackend returns true if the backend is a Service
 func (w *HTTPRouteWrapper) IsServiceBackend() bool {
 	return w.BackendKind() == "Service"
 }

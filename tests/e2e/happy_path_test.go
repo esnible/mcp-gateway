@@ -574,7 +574,7 @@ var _ = Describe("MCP Gateway Registration Happy Path", func() {
 			g.Expect(allTools).NotTo(BeNil())
 			g.Expect(verifyMCPServerRegistrationToolsPresent(registeredServer.Spec.ToolPrefix, allTools)).To(BeTrueBecause("%s should exist", registeredServer.Spec.ToolPrefix))
 		}, TestTimeoutLong, TestRetryInterval).To(Succeed())
-		//e2e-server2-route-authorized-tools-test-d68c7664hello_world
+
 		By("Creating a JWT with allowed tools for the server")
 
 		allowedTools := map[string][]string{

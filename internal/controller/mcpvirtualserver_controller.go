@@ -12,13 +12,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	mcpv1alpha1 "github.com/Kuadrant/mcp-gateway/api/v1alpha1"
 	"github.com/Kuadrant/mcp-gateway/internal/config"
 	"github.com/go-logr/logr"
 )
 
+// VirtualServerConfigReaderWriter interface to write virtual server config
 type VirtualServerConfigReaderWriter interface {
 	WriteVirtualServerConfig(ctx context.Context, virtualServers []config.VirtualServerConfig, namespaceName types.NamespacedName) error
 }
@@ -41,7 +41,7 @@ var defaultRequeueTime = time.Second * 2
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 func (r *MCPVirtualServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := logf.FromContext(ctx)
+	logger := log.FromContext(ctx)
 
 	mcpVS := &mcpv1alpha1.MCPVirtualServer{}
 	if err := r.Get(ctx, req.NamespacedName, mcpVS); err != nil {
@@ -53,7 +53,7 @@ func (r *MCPVirtualServerReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	if !mcpVS.DeletionTimestamp.IsZero() {
 		logger.Info("mcpvirtualserver is being deleted", "name", mcpVS.Name, "namespace", mcpVS.Namespace)
 		if controllerutil.ContainsFinalizer(mcpVS, mcpGatewayFinalizer) {
-			logger.Info("deleting mvpvirtualserver", "name", mcpVS.Name, "namespace", mcpVS.Namespace)
+			logger.Info("deleting mcpvirtualserver", "name", mcpVS.Name, "namespace", mcpVS.Namespace)
 			// TODO remove from config
 			controllerutil.RemoveFinalizer(mcpVS, mcpGatewayFinalizer)
 			if err := r.Update(ctx, mcpVS); err != nil {
@@ -79,16 +79,16 @@ func (r *MCPVirtualServerReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	vsConfig, err := r.generateVirtualServerConfig(ctx)
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("mvpvirtualserver failed to generate virtual server config during reconcile %w", err)
+		return ctrl.Result{}, fmt.Errorf("mcpvirtualserver failed to generate virtual server config during reconcile %w", err)
 	}
 
 	logger.V(1).Info("mcpvirtualserver writing config")
 	if err := r.ConfigReaderWriter.WriteVirtualServerConfig(ctx, vsConfig, config.DefaultNamespaceName); err != nil {
 		if errors.IsConflict(err) {
-			logger.Info("mvpvirtualserver conflict on updating the config for virtual servers will retry in 5 seconds")
+			logger.Info("mcpvirtualserver conflict on updating the config for virtual servers will retry in 5 seconds")
 			return ctrl.Result{RequeueAfter: defaultRequeueTime}, nil
 		}
-		return ctrl.Result{}, fmt.Errorf("mvpvirtualserver failed to write virtual server config during reconcile %w", err)
+		return ctrl.Result{}, fmt.Errorf("mcpvirtualserver failed to write virtual server config during reconcile %w", err)
 	}
 	logger.V(1).Info("mcpvirtualserver reconcile complete", "name", mcpVS.Name, "namespace", mcpVS.Namespace)
 	// update status of virtual server
@@ -118,7 +118,7 @@ func (r *MCPVirtualServerReconciler) generateVirtualServerConfig(ctx context.Con
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *MCPVirtualServerReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
+func (r *MCPVirtualServerReconciler) SetupWithManager(_ context.Context, mgr ctrl.Manager) error {
 	r.log = mgr.GetLogger()
 
 	return ctrl.NewControllerManagedBy(mgr).

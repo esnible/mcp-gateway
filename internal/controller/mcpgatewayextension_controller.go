@@ -31,6 +31,7 @@ const (
 	refGrantIndexKey = "spec.from.ref"
 )
 
+// ConfigWriterDeleter writes and deletes config
 type ConfigWriterDeleter interface {
 	DeleteConfig(ctx context.Context, namespaceName types.NamespacedName) error
 	EnsureConfigExists(ctx context.Context, namespaceName types.NamespacedName) error
@@ -75,7 +76,7 @@ func (r *MCPGatewayExtensionReconciler) Reconcile(ctx context.Context, req ctrl.
 		if controllerutil.ContainsFinalizer(mcpExt, mcpGatewayFinalizer) {
 			logger.Info("deleting mcpgatewayextension", "name", mcpExt.Name, "namespace", mcpExt.Namespace)
 			// TODO delete config from this namespace
-			if err := r.ConfigWriterDeleter.DeleteConfig(ctx, config.ConfigNamespaceName(mcpExt.Namespace)); err != nil {
+			if err := r.ConfigWriterDeleter.DeleteConfig(ctx, config.NamespaceName(mcpExt.Namespace)); err != nil {
 				return ctrl.Result{}, err
 			}
 			controllerutil.RemoveFinalizer(mcpExt, mcpGatewayFinalizer)
@@ -118,7 +119,7 @@ func (r *MCPGatewayExtensionReconciler) Reconcile(ctx context.Context, req ctrl.
 				"mcpgatewayextension", mcpExt.Name,
 				"mcpgatewayextension-namespace", mcpExt.Namespace,
 				"gateway-namespace", mcpExt.Spec.TargetRef.Namespace)
-			if err := r.ConfigWriterDeleter.DeleteConfig(ctx, config.ConfigNamespaceName(mcpExt.Namespace)); err != nil {
+			if err := r.ConfigWriterDeleter.DeleteConfig(ctx, config.NamespaceName(mcpExt.Namespace)); err != nil {
 				return ctrl.Result{}, err
 			}
 			err := r.setReadyConditionAndUpdateStatus(ctx, metav1.ConditionFalse, mcpv1alpha1.ConditionReasonRefGrantRequired,
@@ -152,7 +153,7 @@ func (r *MCPGatewayExtensionReconciler) Reconcile(ctx context.Context, req ctrl.
 		return ctrl.Result{}, err
 	}
 	// create an empty config if a config doesn't exist
-	if err := r.ConfigWriterDeleter.EnsureConfigExists(ctx, config.ConfigNamespaceName(mcpExt.Namespace)); err != nil {
+	if err := r.ConfigWriterDeleter.EnsureConfigExists(ctx, config.NamespaceName(mcpExt.Namespace)); err != nil {
 		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, err

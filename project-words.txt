@@ -325,8 +325,8 @@ spiffe
 SPIFFE
 credentialref
 mcpregistrationname
-mvpvirtualserver
 namespacename
 objs
 Serverconfig
 upserted
+kuberenetes

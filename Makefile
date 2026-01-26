@@ -270,7 +270,7 @@ endef
 .PHONY: reload-controller
 reload-controller: build kind ## Build, load to Kind, and restart controller
 	$(CONTAINER_ENGINE) build $(CONTAINER_ENGINE_EXTRA_FLAGS) --file Dockerfile.controller -t ghcr.io/kuadrant/mcp-controller:latest .	
-	$(call load-image,ghcr.io/kuadrant/mcp-gateway:latest)	
+	$(call load-image,ghcr.io/kuadrant/mcp-controller:latest)	
 	@kubectl rollout restart -n mcp-system deployment/mcp-controller
 	@kubectl rollout status -n mcp-system deployment/mcp-controller --timeout=60s
 
@@ -308,12 +308,12 @@ update:
 
 .PHONY: fmt
 fmt:
-	go fmt ./...
+	gofmt -s -w .
 	goimports -w .
 
 .PHONY: vet
 vet:
-	go vet ./...
+	go vet $$(go list ./... | grep -v /zz_generated)
 
 .PHONY: golangci-lint
 golangci-lint:

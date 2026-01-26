@@ -79,7 +79,7 @@ func main() {
 		DirectAPIReader:       mgr.GetAPIReader(),
 		ConfigReaderWriter:    &configReaderWriter,
 		MCPExtFinderValidator: mcpExtFinderValidator,
-	}).SetupWithManager(mgr, ctx); err != nil {
+	}).SetupWithManager(ctx, mgr); err != nil {
 		panic("unable to start manager : " + err.Error())
 	}
 

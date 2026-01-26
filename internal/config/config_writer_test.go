@@ -8,19 +8,17 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/yaml"
 )
 
-func newTestSecretReaderWriter(t *testing.T, objs ...client.Object) *SecretReaderWriter {
+func newTestSecretReaderWriter(t *testing.T) *SecretReaderWriter {
 	scheme := runtime.NewScheme()
 	if err := corev1.AddToScheme(scheme); err != nil {
 		t.Fatalf("failed to add corev1 to scheme: %v", err)
 	}
 	fakeClient := fake.NewClientBuilder().
 		WithScheme(scheme).
-		WithObjects(objs...).
 		Build()
 	logger := logr.Discard()
 	return &SecretReaderWriter{

@@ -7,13 +7,14 @@ import (
 	"fmt"
 	"strings"
 
+	goenv "github.com/caitlinelfring/go-env-default"
 	"github.com/mark3labs/mcp-go/mcp"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var gatewayURL = "http://localhost:8001/mcp"
+var gatewayURL = goenv.GetDefault("GATEWAY_URL", "http://localhost:8001/mcp")
 
 // these can be used across many tests
 var sharedMCPTestServer1 = "mcp-test-server1"

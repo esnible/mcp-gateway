@@ -213,7 +213,7 @@ build-test-servers: ## Build test server Docker images locally
 .PHONY: build-conformance-server
 build-conformance-server: ## Build conformance server Docker image locally
 	@echo "Building conformance server image..."
-	cd tests/servers/conformance-server && $(CONTAINER_ENGINE) build $(CONTAINER_ENGINE_EXTRA_FLAGS) -t ghcr.io/kagenti/mcp-gateway/test-conformance-server:latest .
+	cd tests/servers/conformance-server && $(CONTAINER_ENGINE) build $(CONTAINER_ENGINE_EXTRA_FLAGS) -t ghcr.io/kuadrant/mcp-gateway/test-conformance-server:latest .
 
 # Load test server images into Kind cluster
 kind-load-test-servers: kind build-test-servers ## Load test server images into Kind cluster
@@ -232,7 +232,7 @@ kind-load-test-servers: kind build-test-servers ## Load test server images into 
 .PHONY: kind-load-conformance-server
 kind-load-conformance-server: kind build-conformance-server ## Load conformance server image into Kind cluster
 	@echo "Loading conformance server image into Kind cluster..."
-	$(call load-image,ghcr.io/kagenti/mcp-gateway/test-conformance-server:latest)
+	$(call load-image,ghcr.io/kuadrant/mcp-gateway/test-conformance-server:latest)
 
 # Deploy test servers
 deploy-test-servers: kind-load-test-servers ## Deploy test MCP servers for local testing

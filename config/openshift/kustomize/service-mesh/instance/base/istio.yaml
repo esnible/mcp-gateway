@@ -8,4 +8,4 @@ spec:
   updateStrategy:
     inactiveRevisionDeletionGracePeriodSeconds: 30
     type: InPlace
-  version: v1.26.4
+  version: v1.26-latest

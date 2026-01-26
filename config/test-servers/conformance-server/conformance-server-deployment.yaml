@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: conformance-server
-        image: ghcr.io/kagenti/mcp-gateway/test-conformance-server:latest
+        image: ghcr.io/kuadrant/mcp-gateway/test-conformance-server:latest
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9090

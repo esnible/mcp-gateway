@@ -308,8 +308,7 @@ update:
 
 .PHONY: fmt
 fmt:
-	gofmt -s -w .
-	goimports -w .
+	find . -name '*.go' ! -name '*deepcopy*.go' ! -path './vendor/*' -print0 | xargs -0 goimports -w
 
 .PHONY: vet
 vet:

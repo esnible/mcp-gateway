@@ -22,23 +22,25 @@ If you already have a Kubernetes cluster, a central authorization tool that uses
 
 Adjust the commands and configuration in the following examples according to your use case. The goal of this documentation is to guide you on testing an AuthPolicy that speaks with an OIDC server on one side and with a Vault instance on the other.
 
-Current configurations support one route or one server per policy, and only one policy. For advanced users that want to use multiple MCP servers, you can consider a workaround such as using a Listener, but those details are beyond the scope of this documentation.
+The sample procedure presented below enforces an AuthPolicy that integrates MCP Gateway with Vault for requests targeting a specific MCP server. For enforcing the Vault integration policy on multiple servers, you can consider targeting a Gateway or individual gateway Listener instead. However, those details are beyond the scope of this documentation.
 
 ### Creating a setup
 
 If you do not have a cluster and related resources ready to try Vault with, then you can continue with the local environment setup. The following procedure outlines a workflow and example commands. Deploying Keycloak, Kuadrant, and Vault with this procedure is resource-heavy and disruptive. Use only in development environments.
 
-Creating a setup requires several steps:
+Creating a local environment requires several steps:
 - clone the repo and use developer tools which build and deploy a custom image of the MCP Gateway
 - deploy resources that are not customized to your use case
 - configure self-signed TLS certs and test-only DNS services
 - reconfigure the Kubernetes API server's authentication
 
+These steps are not required if you are running the procedure in your own preexisting environment.
+
 <details>
 <summary>Set up a local environment</summary>
 
 This procedure creates a local Kind cluster and deploys the following components:
-- MCP Gateway with Authorino enabled
+- MCP Gateway with Kuadrant and Authorino enabled
 - Sample MCP servers, including Test MCP Server 2 (used in this example to test the integration with Vault)
 - Keycloak as OpenID Connect SSO provider
 - Vault server
@@ -91,12 +93,24 @@ The following provides a workflow for using JSON Web Tokens (JWTs) for Authorino
 For instructions on how to configure JWT authentication in Vault, see [Vault's documentation](https://developer.hashicorp.com/vault/api-docs/auth/jwt#configure).
 
 - You must have the JWT `auth` method enabled in Vault (`vault auth enable jwt`) and a role configured that trusts the OIDC issuer.
-- Make sure the connection to `vault.vault.svc.cluster.local` is secure. In a production environment, using `https` and providing a CA certificate in the AuthPolicy is a best practice.
+- Make sure the connection to `vault.vault.svc.cluster.local` is secure. In a production environment, using `https` and providing a CA certificate trusted by the Authorino instance are best practices.
 
 Make sure to create a Vault policy and Vault role that grants access for Authorino to read secrets at the `secret/data/mcp-gateway/*` path, or whatever path you decided to namespace the MCP server secrets.
 
 <details>
 <summary>Example Vault policy and role for Authorino</summary>
+
+In general, a Vault policy for Authorino has the following fields:
+
+```sh
+curl -H "X-Vault-Token: $VAULT_TOKEN" -H 'Content-Type: application/json' -X POST \
+  --data '{
+    "bound_audiences": ["authorino"],
+    "user_claim": "sub",
+  }' \
+```
+
+The following Vault policy examples are specific to Keycloak:
 
 ```sh
 curl -H "X-Vault-Token: $VAULT_TOKEN" -H 'Content-Type: application/json' -X POST \
@@ -129,7 +143,7 @@ apiVersion: kuadrant.io/v1
 kind: AuthPolicy
 metadata:
   name: vault-integration-policy
-  namespace: <your-chosen-names>
+  namespace: <target_namespace>
 ```
     metadata:
       "oidc-token":
@@ -180,7 +194,7 @@ spec:
     authentication:
       "mcp-clients":
         jwt:
-          issuerUrl: https:<replace-with-your-issuer-url>
+          issuerUrl: <your-issuer-url>
           # Use the issuer URL of your OpenId Connect SSO provider
           # Or an jwksUrl instead for authentication servers that do not implement OIDC Discovery
     metadata:
@@ -210,25 +224,6 @@ spec:
             plain:
               expression: |
                 "Bearer " + auth.metadata.vault.data.data.test_server2_pat
-      unauthenticated:
-        code: 401
-        headers:
-          'WWW-Authenticate':
-            value: Bearer resource_metadata=http://mcp.127-0-0-1.sslip.io:8001/.well-known/oauth-protected-resource/mcp
-        body:
-          value: |
-            {
-              "error": "Forbidden",
-              "message": "MCP Tool Access denied. Unauthenticated."
-            }
-      unauthorized:
-        code: 403
-        body:
-          value: |
-            {
-              "error": "Forbidden",
-              "message": "MCP Tool Access denied. Insufficient permissions for this tool."
-            }
 ---
 apiVersion: v1
 kind: Secret
@@ -249,6 +244,7 @@ You can test your MCP Gateway integration by using the general steps that follow
 
 <details>
 <summary>Example curl command to store a vault token</summary>
+
 ```sh
 curl -s -H "X-Vault-Token: $VAULT_TOKEN" -H 'Content-Type: application/json' -X POST \
   --data '{"data":{"test_server2_pat":"s3cr3t"}}' \
@@ -260,15 +256,21 @@ curl -s -H "X-Vault-Token: $VAULT_TOKEN" -H 'Content-Type: application/json' -X 
 
 <details>
 <summary>Example access token request</summary>
+
 ```sh
-ACCESS_TOKEN=$(curl -k <replace-with-your-issuer-url> -s -d 'grant_type=password' -d 'client_id=mcp-gateway' -d 'client_secret=secret' -d 'username=mcp' -d 'password=mcp' -d 'scope=openid profile groups roles' | jq -r .access_token)
+ACCESS_TOKEN=$(curl <replace-with-your-issuer-url> -s -d 'grant_type=client_credentials' -d 'client_id=<mcp-client-id>' -d 'client_secret=<mcp-client-secret>' -d 'scope=openid profile groups roles' | jq -r .access_token)
 ```
 </details>
 
 ### 3. Start a session with the MCP Gateway
 
 <details>
-<summary>Example session initialization command</summary>
+<summary>Example session initialization</summary>
+
+You can initialize a session according to your own development environment's set up.
+
+If you are using the local environment set up given in this guide, use the following command:
+
 ```sh
 MCP_SESSION_ID=$(curl -s -o /dev/null -w '%header{mcp-session-id}\n' \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
@@ -280,6 +282,10 @@ MCP_SESSION_ID=$(curl -s -o /dev/null -w '%header{mcp-session-id}\n' \
 </details>
 
 ### Send a request to the MCP server route that requires fetching credentials from Vault
+
+You can send a request to the MCP server according to your own development environment's set up.
+
+If you are using the local environment set up given in this guide, use the following command:
 
 <details>
 <summary>Example request</summary>

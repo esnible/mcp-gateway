@@ -23,7 +23,7 @@ If you already have a Kubernetes cluster, a central authorization tool that uses
 Adjust the commands and configuration in the following examples according to your use case. The goal of this documentation is to guide you on testing an AuthPolicy that speaks with an OIDC server on one side and with a Vault instance on the other.
 
 The sample procedure presented below enforces an AuthPolicy that integrates MCP Gateway with Vault for requests targeting a specific MCP server. For enforcing the Vault integration policy on multiple servers, you can consider targeting a Gateway or individual gateway Listener instead. However, those details are beyond the scope of this documentation.
-
+<!--
 ### Creating a setup
 
 If you do not have a cluster and related resources ready to try Vault with, then you can continue with the local environment setup. The following procedure outlines a workflow and example commands. Deploying Keycloak, Kuadrant, and Vault with this procedure is resource-heavy and disruptive. Use only in development environments.
@@ -87,14 +87,14 @@ export VAULT_TOKEN=root
 ## Integrate Vault with the MCP Gateway Using JWTs
 
 The following provides a workflow for using JSON Web Tokens (JWTs) for Authorino to authenticate to Vault. This option is much more secure than using a root token. Authorino can be granted limited access to Vault based on configured policies, such as role-based policies.
-
-### Enable JWT authentication in your Vault server
+-->
+## Enable JWT authentication in your Vault server
 
 For instructions on how to configure JWT authentication in Vault, see [Vault's documentation](https://developer.hashicorp.com/vault/api-docs/auth/jwt#configure).
-
+<!--
 - You must have the JWT `auth` method enabled in Vault (`vault auth enable jwt`) and a role configured that trusts the OIDC issuer.
 - Make sure the connection to `vault.vault.svc.cluster.local` is secure. In a production environment, using `https` and providing a CA certificate trusted by the Authorino instance are best practices.
-
+-->
 Make sure to create a Vault policy and Vault role that grants access for Authorino to read secrets at the `secret/data/mcp-gateway/*` path, or whatever path you decided to namespace the MCP server secrets.
 
 <details>
@@ -109,7 +109,7 @@ curl -H "X-Vault-Token: $VAULT_TOKEN" -H 'Content-Type: application/json' -X POS
     "user_claim": "sub",
   }' \
 ```
-
+<!--
 The following Vault policy examples are specific to Keycloak:
 
 ```sh
@@ -132,7 +132,7 @@ curl -H "X-Vault-Token: $VAULT_TOKEN" -H 'Content-Type: application/json' -X POS
   http://localhost:8200/v1/auth/jwt/role/authorino
 ```
 </details>
-
+-->
 ### Create the AuthPolicy
 
 Create an AuthPolicy to connect an external OIDC Identity Provider (IdP) with Vault to get a Vault token on behalf of the user or service that needs access to the MCP server data.
@@ -144,13 +144,21 @@ kind: AuthPolicy
 metadata:
   name: vault-integration-policy
   namespace: <target_namespace>
-```
-    metadata:
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: <your-httproute-name>
+  rules:
+    authentication:
       "oidc-token":
         priority: 0
         http:
-          url: <replace with the token url of the jwt issuer trusted by vault for authentication>
-```
+          url: <replace-with-token-url>
+      # If you are using a shared secret, you can add the following:
+      sharedSecret:
+            name: oidc-client-credentials # This points to a K8s secret
+            namespace: <kuadrant-system>
       "vault-login":
         priority: 1
         when:
@@ -160,7 +168,27 @@ metadata:
           method: POST
           body:
             expression: |
-              "{\"role\": \"<replace with vault role for authorino>\", \"jwt\": \"" + auth.metadata["oidc-token"].access_token + "\"}"
+              "{\"role\": \"<replace-with-vault-role>\", \"jwt\": \"" + auth.metadata["oidc-token"].access_token + "\"}"
+    authorization:
+      "validate-vault-response":
+        priority: 0
+        when:
+        - predicate: auth.metadata.exists(p, p == "vault-login")
+        json:
+          rules:
+          - selector: auth.metadata["vault-login"].auth.client_token
+            operator: ne
+            value: ""
+    # The Injector: Passes the successful token to your app
+    response:
+      success:
+        filters:
+          "inject-vault-token":
+            header:
+              name: X-Vault-Token
+              value:
+                expression: auth.metadata["vault-login"].auth.client_token
+EOF
 ```
 - `oidc-token`: the policy makes a call to the OIDC provider.
 - `vault-login`: the series of steps that perform the JWT authentication against the secrets stored in Vault.
@@ -189,7 +217,7 @@ spec:
   targetRef:
     group: gateway.networking.k8s.io
     kind: HTTPRoute
-    name: mcp-server2-route
+    name: <mcp-server2-route>
   rules:
     authentication:
       "mcp-clients":
@@ -264,10 +292,11 @@ ACCESS_TOKEN=$(curl <replace-with-your-issuer-url> -s -d 'grant_type=client_cred
 
 ### 3. Start a session with the MCP Gateway
 
+You can initialize a session according to your own development environment's set up.
+
+<!--
 <details>
 <summary>Example session initialization</summary>
-
-You can initialize a session according to your own development environment's set up.
 
 If you are using the local environment set up given in this guide, use the following command:
 
@@ -280,11 +309,12 @@ MCP_SESSION_ID=$(curl -s -o /dev/null -w '%header{mcp-session-id}\n' \
   http://mcp.127-0-0-1.sslip.io:8001/mcp)
 ```
 </details>
+-->
 
 ### Send a request to the MCP server route that requires fetching credentials from Vault
 
 You can send a request to the MCP server according to your own development environment's set up.
-
+<!--
 If you are using the local environment set up given in this guide, use the following command:
 
 <details>
@@ -303,7 +333,7 @@ curl -s \
   http://mcp.127-0-0-1.sslip.io:8001/mcp
 ```
 </details>
-
+-->
 ### Example output
 
 The expected output shows that the request was successful and the `Authorization:` header was set using the secret fetched from Vault:

@@ -33,7 +33,7 @@ const (
 	// shared fixtures for e2e tests
 	GatewayNamespace   = "gateway-system"
 	GatewayName        = "mcp-gateway"
-	MCPExtensionName   = "e2e-mcp-extension"
+	MCPExtensionName   = "mcp-gateway-extension"
 	ReferenceGrantName = "allow-mcp-extensions"
 )
 
@@ -102,6 +102,38 @@ var _ = BeforeSuite(func() {
 	}})
 	Expect(err).ToNot(HaveOccurred(), "all existing MCPSevers should be removed before the e2e test suite")
 
+	By("cleaning up all http routes")
+	err = k8sClient.DeleteAllOf(ctx, &gatewayapiv1.HTTPRoute{}, client.InNamespace("mcp-test"))
+	Expect(err).ToNot(HaveOccurred(), "all existing HTTPRoutes should be removed before the e2e test suite")
+
+	By("ensuring ReferenceGrant exists in gateway-system")
+	refGrant := NewReferenceGrantBuilder(ReferenceGrantName, GatewayNamespace).
+		FromNamespace(SystemNamespace).
+		Build()
+	existingRefGrant := &gatewayv1beta1.ReferenceGrant{}
+	err = k8sClient.Get(ctx, types.NamespacedName{Name: ReferenceGrantName, Namespace: GatewayNamespace}, existingRefGrant)
+	if err != nil {
+		Expect(client.IgnoreNotFound(err)).ToNot(HaveOccurred())
+		Expect(k8sClient.Create(ctx, refGrant)).To(Succeed())
+		GinkgoWriter.Printf("Created ReferenceGrant %s in %s\n", ReferenceGrantName, GatewayNamespace)
+	} else {
+		GinkgoWriter.Printf("ReferenceGrant %s already exists in %s\n", ReferenceGrantName, GatewayNamespace)
+	}
+
+	By("ensuring MCPGatewayExtension exists in mcp-system")
+	mcpExt := NewMCPGatewayExtensionBuilder(MCPExtensionName, SystemNamespace).
+		WithTarget(GatewayName, GatewayNamespace).
+		Build()
+	existingMCPExt := &mcpv1alpha1.MCPGatewayExtension{}
+	err = k8sClient.Get(ctx, types.NamespacedName{Name: MCPExtensionName, Namespace: SystemNamespace}, existingMCPExt)
+	if err != nil {
+		Expect(client.IgnoreNotFound(err)).ToNot(HaveOccurred())
+		Expect(k8sClient.Create(ctx, mcpExt)).To(Succeed())
+		GinkgoWriter.Printf("Created MCPGatewayExtension %s in %s\n", MCPExtensionName, SystemNamespace)
+	} else {
+		GinkgoWriter.Printf("MCPGatewayExtension %s already exists in %s\n", MCPExtensionName, SystemNamespace)
+	}
+
 	By("setting up an mcp client for the gateway")
 	mcpGatewayClient, err = NewMCPGatewayClientWithNotifications(ctx, gatewayURL, func(j mcp.JSONRPCNotification) {})
 	Expect(err).Error().NotTo(HaveOccurred())
@@ -113,23 +145,6 @@ var _ = AfterSuite(func() {
 	if mcpGatewayClient != nil {
 		GinkgoWriter.Println("closing client")
 		mcpGatewayClient.Close()
-	}
-
-	By("cleaning up MCPGatewayExtension")
-	mcpExt := &mcpv1alpha1.MCPGatewayExtension{}
-	if err := k8sClient.Get(ctx, types.NamespacedName{Name: MCPExtensionName, Namespace: SystemNamespace}, mcpExt); err == nil {
-		// remove finalizer if present
-		if len(mcpExt.Finalizers) > 0 {
-			mcpExt.Finalizers = nil
-			_ = k8sClient.Update(ctx, mcpExt)
-		}
-		_ = k8sClient.Delete(ctx, mcpExt)
-	}
-
-	By("cleaning up ReferenceGrant")
-	refGrant := &gatewayv1beta1.ReferenceGrant{}
-	if err := k8sClient.Get(ctx, types.NamespacedName{Name: ReferenceGrantName, Namespace: GatewayNamespace}, refGrant); err == nil {
-		_ = k8sClient.Delete(ctx, refGrant)
 	}
 
 	if cancel != nil {

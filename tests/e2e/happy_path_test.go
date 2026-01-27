@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	mcpv1alpha1 "github.com/Kuadrant/mcp-gateway/api/v1alpha1"
 	goenv "github.com/caitlinelfring/go-env-default"
 	"github.com/mark3labs/mcp-go/mcp"
 	. "github.com/onsi/ginkgo/v2"
@@ -50,20 +51,27 @@ var _ = Describe("MCP Gateway Registration Happy Path", func() {
 	It("[Happy] basic registration tool invocation and unregistration", func() {
 		By("Creating HTTPRoutes and MCP Servers")
 		// create httproutes for test servers that should already be deployed
-		registration := NewMCPServerResourcesWithDefaults("basic-registration", k8sClient)
+		registration1 := NewMCPServerResourcesWithDefaults("basic-registration", k8sClient).WithToolPrefix("server1").Build()
 		// Important as we need to make sure to clean up
-		testResources = append(testResources, registration.GetObjects()...)
-		registeredServer1 := registration.Register(ctx)
-		registration = NewMCPServerResourcesWithDefaults("basic-registration", k8sClient)
+		testResources = append(testResources, registration1.GetObjects()...)
+		httpRoute1Name := registration1.GetHTTPRouteName()
+		registeredServer1 := registration1.Register(ctx)
+		registration2 := NewMCPServerResourcesWithDefaults("basic-registration", k8sClient).WithToolPrefix("server2").Build()
 		// Important as we need to make sure to clean up
-		testResources = append(testResources, registration.GetObjects()...)
-		registeredServer2 := registration.Register(ctx)
+		testResources = append(testResources, registration2.GetObjects()...)
+		registeredServer2 := registration2.Register(ctx)
 
 		By("Verifying MCPServerRegistrations become ready")
 		Eventually(func(g Gomega) {
 			g.Expect(VerifyMCPServerRegistrationReadyWithToolsCount(ctx, k8sClient, registeredServer1.Name, registeredServer1.Namespace, 5)).To(BeNil())
 			g.Expect(VerifyMCPServerRegistrationReadyWithToolsCount(ctx, k8sClient, registeredServer2.Name, registeredServer2.Namespace, 5)).To(BeNil())
 		}, TestTimeoutLong, TestRetryInterval).To(Succeed())
+
+		By("Verifying HTTPRoute has Programmed condition set")
+		Eventually(func(g Gomega) {
+			err := VerifyHTTPRouteHasProgrammedCondition(ctx, k8sClient, httpRoute1Name, TestNamespace)
+			g.Expect(err).NotTo(HaveOccurred())
+		}, TestTimeoutMedium, TestRetryInterval).To(Succeed())
 
 		By("Verifying MCPServerRegistrations tools are present")
 		Eventually(func(g Gomega) {
@@ -103,12 +111,18 @@ var _ = Describe("MCP Gateway Registration Happy Path", func() {
 			g.Expect(verifyMCPServerRegistrationToolsPresent(registeredServer1.Spec.ToolPrefix, toolsList)).To(BeFalse())
 		}, TestTimeoutLong, TestRetryInterval).To(Succeed())
 
+		By("Verifying HTTPRoute no longer has Programmed condition after MCPServerRegistration deletion")
+		Eventually(func(g Gomega) {
+			err := VerifyHTTPRouteNoProgrammedCondition(ctx, k8sClient, httpRoute1Name, TestNamespace)
+			g.Expect(err).NotTo(HaveOccurred())
+		}, TestTimeoutMedium, TestRetryInterval).To(Succeed())
+
 	})
 
 	It("[Happy] should register mcp server with credential with the gateway and make the tools available", func() {
 		cred := BuildCredentialSecret("mcp-credential", "test-api-key-secret-toke")
 		registration := NewMCPServerResourcesWithDefaults("credentials", k8sClient).
-			WithCredential(cred, "token").WithBackendTarget("mcp-api-key-server", 9090)
+			WithCredential(cred, "token").WithBackendTarget("mcp-api-key-server", 9090).WithToolPrefix("auth").Build()
 		testResources = append(testResources, registration.GetObjects()...)
 		registeredServer := registration.Register(ctx)
 		By("ensuring broker has failed authentication and the mcp server is not registered and the tools don't exist")
@@ -146,7 +160,7 @@ var _ = Describe("MCP Gateway Registration Happy Path", func() {
 
 	It("[Happy] should use and re-use a backend MCP session", func() {
 
-		registration := NewMCPServerResourcesWithDefaults("sessions", k8sClient)
+		registration := NewMCPServerResourcesWithDefaults("sessions", k8sClient).Build()
 		// Important as we need to make sure to clean up
 		testResources = append(testResources, registration.GetObjects()...)
 		registeredServer := registration.Register(ctx)
@@ -272,7 +286,7 @@ var _ = Describe("MCP Gateway Registration Happy Path", func() {
 
 	It("[Happy] should only return tools specified by MCPVirtualServer when using X-Mcp-Virtualserver header", func() {
 		By("Creating an MCPServerRegistration with tools")
-		registration := NewMCPServerResourcesWithDefaults("virtualserver-test", k8sClient)
+		registration := NewMCPServerResourcesWithDefaults("virtualserver-test", k8sClient).Build()
 		testResources = append(testResources, registration.GetObjects()...)
 		registeredServer := registration.Register(ctx)
 
@@ -343,7 +357,7 @@ var _ = Describe("MCP Gateway Registration Happy Path", func() {
 		Expect(client1.sessionID).NotTo(Equal(client2.sessionID))
 
 		By("registering a new MCPServerRegistration")
-		registration := NewMCPServerResourcesWithDefaults("notification-test", k8sClient)
+		registration := NewMCPServerResourcesWithDefaults("notification-test", k8sClient).Build()
 		testResources = append(testResources, registration.GetObjects()...)
 		registeredServer := registration.Register(ctx)
 
@@ -373,7 +387,7 @@ var _ = Describe("MCP Gateway Registration Happy Path", func() {
 
 		By("Creating an MCPServerRegistration pointing to server1 which has the add_tool feature")
 		registration := NewMCPServerResourcesWithDefaults("backend-notification-test", k8sClient).
-			WithBackendTarget(sharedMCPTestServer1, 9090)
+			WithBackendTarget(sharedMCPTestServer1, 9090).Build()
 		testResources = append(testResources, registration.GetObjects()...)
 		registeredServer := registration.Register(ctx)
 
@@ -461,7 +475,7 @@ var _ = Describe("MCP Gateway Registration Happy Path", func() {
 
 		By("Registering an MCPServerRegistration pointing to server3")
 		registration := NewMCPServerResourcesWithDefaults("unavailable-test", k8sClient).
-			WithBackendTarget(scaledMCPTestServer, 9090)
+			WithBackendTarget(scaledMCPTestServer, 9090).Build()
 		testResources = append(testResources, registration.GetObjects()...)
 		registeredServer := registration.Register(ctx)
 
@@ -556,7 +570,7 @@ var _ = Describe("MCP Gateway Registration Happy Path", func() {
 		}
 
 		By("Creating an MCPServerRegistration with tools")
-		registration := NewMCPServerResourcesWithDefaults("authorized-tools-test", k8sClient)
+		registration := NewMCPServerResourcesWithDefaults("authorized-tools-test", k8sClient).Build()
 		testResources = append(testResources, registration.GetObjects()...)
 		registeredServer := registration.Register(ctx)
 
@@ -608,7 +622,7 @@ var _ = Describe("MCP Gateway Registration Happy Path", func() {
 		port := int32(9090)
 
 		By("Creating ServiceEntry, DestinationRule, HTTPRoute with Hostname backendRef, and MCPServerRegistration")
-		registration := NewExternalMCPServerResources("hostname-backend", k8sClient, externalHost, port)
+		registration := NewExternalMCPServerResources("hostname-backend", k8sClient, externalHost, port).Build()
 		testResources = append(testResources, registration.GetObjects()...)
 		registeredServer := registration.Register(ctx)
 
@@ -622,7 +636,7 @@ var _ = Describe("MCP Gateway Registration Happy Path", func() {
 		By("Creating an MCPServerRegistration pointing to the broken server with wrong protocol version")
 		// The broken server is already deployed with --failure-mode=protocol
 		registration := NewMCPServerResourcesWithDefaults("protocol-status-test", k8sClient).
-			WithBackendTarget("mcp-test-broken-server", 9090)
+			WithBackendTarget("mcp-test-broken-server", 9090).Build()
 		testResources = append(testResources, registration.GetObjects()...)
 		registeredServer := registration.Register(ctx)
 
@@ -644,7 +658,7 @@ var _ = Describe("MCP Gateway Registration Happy Path", func() {
 
 		By("Creating first MCPServerRegistration with a specific prefix")
 		registration1 := NewMCPServerResourcesWithDefaults("conflict-test-1", k8sClient).
-			WithToolPrefix("conflict_")
+			WithToolPrefix("conflict_").Build()
 		testResources = append(testResources, registration1.GetObjects()...)
 		server1 := registration1.Register(ctx)
 
@@ -655,7 +669,7 @@ var _ = Describe("MCP Gateway Registration Happy Path", func() {
 
 		By("Creating second MCPServerRegistration with the SAME prefix pointing to server2")
 		registration2 := NewMCPServerResourcesWithDefaults("conflict-test-2", k8sClient).
-			WithToolPrefix("conflict_")
+			WithToolPrefix("conflict_").Build()
 		testResources = append(testResources, registration2.GetObjects()...)
 		server2 := registration2.Register(ctx)
 
@@ -684,14 +698,14 @@ var _ = Describe("MCP Gateway Registration Happy Path", func() {
 		By("Creating HTTPRoutes and MCP Servers")
 		// create httproutes for test servers that should already be deployed
 		registration := NewMCPServerResources("same-prefix", "everything-server.mcp.local", "everything-server", 9090, k8sClient).
-			WithToolPrefix("")
+			WithToolPrefix("").Build()
 		// Important as we need to make sure to clean up
 		testResources = append(testResources, registration.GetObjects()...)
 		registeredServer1 := registration.Register(ctx)
 
 		// This server has a 'hello_world' tool
 		registration = NewMCPServerResources("same-prefix", "e2e-server2.mcp.local", "mcp-test-server2", 9090, k8sClient).
-			WithToolPrefix("")
+			WithToolPrefix("").Build()
 		// Important as we need to make sure to clean up
 		testResources = append(testResources, registration.GetObjects()...)
 		registeredServer2 := registration.Register(ctx)
@@ -747,18 +761,18 @@ var _ = Describe("MCP Gateway Registration Happy Path", func() {
 
 		By("Creating first MCPServer without prefix pointing to server1")
 		registration1 := NewMCPServerResources("prefix-conflict-1", "conflict-server1.mcp.local", sharedMCPTestServer1, 9090, k8sClient).
-			WithToolPrefix("")
+			WithToolPrefix("").Build()
 		testResources = append(testResources, registration1.GetObjects()...)
 		server1 := registration1.Register(ctx)
 
 		By("Waiting for first server to become ready before creating second server")
 		Eventually(func(g Gomega) {
-			g.Expect(VerifyMCPServerRegistrationReady(ctx, k8sClient, server1.Name, server1.Namespace)).To(BeNil())
+			g.Expect(VerifyMCPServerRegistrationReady(ctx, k8sClient, server1.Name, server1.Namespace)).To(Succeed())
 		}, TestTimeoutLong, TestRetryInterval).To(Succeed())
 
 		By("Creating second MCPServer without prefix pointing to server2 (also has time, headers, slow)")
 		registration2 := NewMCPServerResources("prefix-conflict-2", "conflict-server2.mcp.local", sharedMCPTestServer2, 9090, k8sClient).
-			WithToolPrefix("")
+			WithToolPrefix("").Build()
 		testResources = append(testResources, registration2.GetObjects()...)
 		server2 := registration2.Register(ctx)
 
@@ -811,5 +825,137 @@ var _ = Describe("MCP Gateway Registration Happy Path", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res).NotTo(BeNil())
 		Expect(len(res.Content)).To(BeNumerically(">=", 1))
+	})
+
+	It("[Happy] MCPGatewayExtension targeting non-existent Gateway should report invalid status", func() {
+		By("Creating an MCPGatewayExtension targeting a non-existent Gateway")
+		mcpExt := NewMCPGatewayExtensionBuilder("test-invalid-gateway", SystemNamespace).
+			WithTarget("non-existent-gateway", GatewayNamespace).
+			Build()
+		testResources = append(testResources, mcpExt)
+		Expect(k8sClient.Create(ctx, mcpExt)).To(Succeed())
+
+		By("Verifying MCPGatewayExtension status reports invalid configuration")
+		Eventually(func(g Gomega) {
+			err := VerifyMCPGatewayExtensionNotReadyWithReason(ctx, k8sClient, mcpExt.Name, mcpExt.Namespace, "Invalid")
+			g.Expect(err).NotTo(HaveOccurred())
+		}, TestTimeoutMedium, TestRetryInterval).To(Succeed())
+
+		By("Verifying the status message indicates the issue")
+		msg, err := GetMCPGatewayExtensionStatusMessage(ctx, k8sClient, mcpExt.Name, mcpExt.Namespace)
+		Expect(err).NotTo(HaveOccurred())
+		GinkgoWriter.Println("MCPGatewayExtension status message:", msg)
+		Expect(msg).To(ContainSubstring("invalid"))
+	})
+
+	It("[Happy] MCPGatewayExtension cross-namespace reference requires ReferenceGrant", func() {
+		// Note: The existing MCPGatewayExtension in mcp-system already owns the gateway.
+		// After adding a ReferenceGrant, this MCPGatewayExtension will get a conflict status
+		// because only one MCPGatewayExtension can own a gateway (the oldest one wins).
+		By("Creating an MCPGatewayExtension in mcp-test namespace targeting Gateway in gateway-system without ReferenceGrant")
+		mcpExt := NewMCPGatewayExtensionBuilder("test-cross-ns", TestNamespace).
+			WithTarget(GatewayName, GatewayNamespace).
+			Build()
+		testResources = append(testResources, mcpExt)
+		Expect(k8sClient.Create(ctx, mcpExt)).To(Succeed())
+
+		By("Verifying MCPGatewayExtension status reports ReferenceGrant required")
+		Eventually(func(g Gomega) {
+			err := VerifyMCPGatewayExtensionNotReadyWithReason(ctx, k8sClient, mcpExt.Name, mcpExt.Namespace, "ReferenceGrantRequired")
+			g.Expect(err).NotTo(HaveOccurred())
+		}, TestTimeoutMedium, TestRetryInterval).To(Succeed())
+
+		By("Creating a ReferenceGrant in gateway-system to allow cross-namespace reference")
+		refGrant := NewReferenceGrantBuilder("allow-mcp-test", GatewayNamespace).
+			FromNamespace(TestNamespace).
+			Build()
+		testResources = append(testResources, refGrant)
+		Expect(k8sClient.Create(ctx, refGrant)).To(Succeed())
+
+		By("Verifying MCPGatewayExtension gets conflict status (existing mcp-system MCPGatewayExtension owns the gateway)")
+		Eventually(func(g Gomega) {
+			err := VerifyMCPGatewayExtensionNotReadyWithReason(ctx, k8sClient, mcpExt.Name, mcpExt.Namespace, "Invalid")
+			g.Expect(err).NotTo(HaveOccurred())
+		}, TestTimeoutMedium, TestRetryInterval).To(Succeed())
+
+		By("Verifying the status message indicates conflict")
+		msg, err := GetMCPGatewayExtensionStatusMessage(ctx, k8sClient, mcpExt.Name, mcpExt.Namespace)
+		Expect(err).NotTo(HaveOccurred())
+		GinkgoWriter.Println("MCPGatewayExtension status message:", msg)
+		Expect(msg).To(ContainSubstring("conflict"))
+
+		By("Deleting the ReferenceGrant")
+		Expect(k8sClient.Delete(ctx, refGrant)).To(Succeed())
+
+		By("Verifying MCPGatewayExtension returns to ReferenceGrant required status after ReferenceGrant is deleted")
+		Eventually(func(g Gomega) {
+			err := VerifyMCPGatewayExtensionNotReadyWithReason(ctx, k8sClient, mcpExt.Name, mcpExt.Namespace, "ReferenceGrantRequired")
+			g.Expect(err).NotTo(HaveOccurred())
+		}, TestTimeoutMedium, TestRetryInterval).To(Succeed())
+	})
+
+	// TODO possibly should use a separate setup
+	It("[Happy] MCPGatewayExtension deletion removes associated config and tools", func() {
+		// This test verifies that deleting the owning MCPGatewayExtension removes the config.
+		// We temporarily delete the existing mcp-system MCPGatewayExtension, then restore it.
+		By("Getting the existing MCPGatewayExtension in mcp-system")
+		existingExt := &mcpv1alpha1.MCPGatewayExtension{}
+		err := k8sClient.Get(ctx, client.ObjectKey{Name: "mcp-gateway-extension", Namespace: SystemNamespace}, existingExt)
+		Expect(err).NotTo(HaveOccurred())
+
+		By("Creating an MCPServerRegistration to verify tools exist")
+		registration := NewMCPServerResourcesWithDefaults("deletion-test", k8sClient).Build()
+		testResources = append(testResources, registration.GetObjects()...)
+		registeredServer := registration.Register(ctx)
+
+		By("Verifying MCPServerRegistration becomes ready")
+		Eventually(func(g Gomega) {
+			g.Expect(VerifyMCPServerRegistrationReady(ctx, k8sClient, registeredServer.Name, registeredServer.Namespace)).To(BeNil())
+		}, TestTimeoutLong, TestRetryInterval).To(Succeed())
+
+		By("Verifying tools are present in gateway")
+		Eventually(func(g Gomega) {
+			toolsList, err := mcpGatewayClient.ListTools(ctx, mcp.ListToolsRequest{})
+			g.Expect(err).Error().NotTo(HaveOccurred())
+			g.Expect(toolsList).NotTo(BeNil())
+			g.Expect(verifyMCPServerRegistrationToolsPresent(registeredServer.Spec.ToolPrefix, toolsList)).To(BeTrueBecause("%s should exist", registeredServer.Spec.ToolPrefix))
+		}, TestTimeoutLong, TestRetryInterval).To(Succeed())
+
+		By("Deleting the existing MCPGatewayExtension")
+		Expect(k8sClient.Delete(ctx, existingExt)).To(Succeed())
+
+		By("Verifying the MCPServerRegistration status reflects the issue with the gateway extension")
+		//no valid mcpgatewayextensions configured
+		Eventually(func(g Gomega) {
+			g.Expect(VerifyMCPServerRegistrationNotReadyWithReason(ctx, k8sClient, registeredServer.Name, registeredServer.Namespace, "no valid mcpgatewayextensions configured")).To(Succeed())
+		}, TestTimeoutLong, TestRetryInterval).To(Succeed())
+
+		By("Verifying tools are no longer accessible from the gateway")
+		Eventually(func(g Gomega) {
+			toolsList, err := mcpGatewayClient.ListTools(ctx, mcp.ListToolsRequest{})
+			g.Expect(err).Error().NotTo(HaveOccurred())
+			g.Expect(toolsList).NotTo(BeNil())
+			g.Expect(verifyMCPServerRegistrationToolsPresent(registeredServer.Spec.ToolPrefix, toolsList)).To(BeFalseBecause("%s should NOT exist after MCPGatewayExtension deletion", registeredServer.Spec.ToolPrefix))
+		}, TestTimeoutLong, TestRetryInterval).To(Succeed())
+
+		By("Recreating the MCPGatewayExtension to restore the system")
+		newExt := NewMCPGatewayExtensionBuilder("mcp-gateway-extension", SystemNamespace).
+			WithTarget(GatewayName, GatewayNamespace).
+			Build()
+		Expect(k8sClient.Create(ctx, newExt)).To(Succeed())
+
+		By("Verifying MCPGatewayExtension becomes ready again")
+		Eventually(func(g Gomega) {
+			err := VerifyMCPGatewayExtensionReady(ctx, k8sClient, newExt.Name, newExt.Namespace)
+			g.Expect(err).NotTo(HaveOccurred())
+		}, TestTimeoutMedium, TestRetryInterval).To(Succeed())
+
+		By("Verifying tools are restored")
+		Eventually(func(g Gomega) {
+			toolsList, err := mcpGatewayClient.ListTools(ctx, mcp.ListToolsRequest{})
+			g.Expect(err).Error().NotTo(HaveOccurred())
+			g.Expect(toolsList).NotTo(BeNil())
+			g.Expect(verifyMCPServerRegistrationToolsPresent(registeredServer.Spec.ToolPrefix, toolsList)).To(BeTrueBecause("%s should be restored", registeredServer.Spec.ToolPrefix))
+		}, TestTimeoutLong, TestRetryInterval).To(Succeed())
 	})
 })

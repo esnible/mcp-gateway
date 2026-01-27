@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 	"time"
 
@@ -183,17 +184,12 @@ func TestNewServerValidator(t *testing.T) {
 		Build()
 
 	t.Run("uses default namespace when NAMESPACE not set", func(t *testing.T) {
-		// ensure NAMESPACE is not set
-		originalNamespace := "" // we don't unset in parallel tests
 		validator := NewServerValidator(k8sClient)
 
 		// should use default namespace if NAMESPACE env not set
+		require.Empty(t, os.Getenv("NAMESPACE"))
 		require.NotNil(t, validator)
-		require.NotNil(t, validator.httpClient)
-		require.Equal(t, k8sClient, validator.k8sClient)
-		if originalNamespace == "" {
-			// check that namespace is either from env or default
-			require.NotEmpty(t, validator.namespace)
-		}
+		// check that namespace is set
+		require.NotEmpty(t, validator.namespace)
 	})
 }

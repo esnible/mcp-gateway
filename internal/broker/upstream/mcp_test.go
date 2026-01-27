@@ -7,9 +7,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// NewUpstreamMCP creates a new MCPServer instance from the provided configuration.
-// It sets up default headers including user-agent and gateway-server-id, and adds
-// an Authorization header if credentials are configured.
 func TestNewUpstreamMCP(t *testing.T) {
 	testServer := config.MCPServer{
 		Name:       "test-server",

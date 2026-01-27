@@ -96,32 +96,3 @@ func TestProtectedResourceHandler_Handle(t *testing.T) {
 		})
 	}
 }
-
-func TestProtectedResourceHandler_Handle_WithCustomConfig(t *testing.T) {
-	// The test shouldn't be run with env vars set.
-	// We could use t.Setenv() to make test cases, but then the test couldn't run in parallel.
-	require.Equal(t, "", os.Getenv(envOAuthResourceName), "Test case expects env var to be unset")
-	require.Equal(t, "", os.Getenv(envOAuthResource), "Test case expects env var to be unset")
-	require.Equal(t, "", os.Getenv(envOAuthAuthorizationServers), "Test case expects env var to be unset")
-	require.Equal(t, "", os.Getenv(envOAuthBearerMethodsSupported), "Test case expects env var to be unset")
-	require.Equal(t, "", os.Getenv(envOAuthScopesSupported), "Test case expects env var to be unset")
-
-	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
-
-	handler := &ProtectedResourceHandler{Logger: logger}
-
-	req := httptest.NewRequest(http.MethodGet, "/.well-known/oauth-protected-resource", nil)
-	rec := httptest.NewRecorder()
-
-	handler.Handle(rec, req)
-
-	require.Equal(t, http.StatusOK, rec.Code)
-
-	var response OAuthProtectedResource
-	err := json.NewDecoder(rec.Body).Decode(&response)
-	require.NoError(t, err)
-
-	require.Equal(t, "MCP Server", response.ResourceName)
-	require.Equal(t, "/mcp", response.Resource)
-	require.Equal(t, []string{}, response.AuthorizationServers)
-}

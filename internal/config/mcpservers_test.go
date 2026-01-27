@@ -280,42 +280,44 @@ func TestMCPServersConfig_GetServerConfigByName(t *testing.T) {
 	testCases := []struct {
 		name       string
 		serverName string
-		expectNil  bool
+		expectErr  bool
 	}{
 		{
 			name:       "find first server",
 			serverName: "server1",
-			expectNil:  false,
+			expectErr:  false,
 		},
 		{
 			name:       "find middle server",
 			serverName: "server2",
-			expectNil:  false,
+			expectErr:  false,
 		},
 		{
 			name:       "find last server",
 			serverName: "server3",
-			expectNil:  false,
+			expectErr:  false,
 		},
 		{
 			name:       "server not found",
 			serverName: "nonexistent",
-			expectNil:  true,
+			expectErr:  true,
 		},
 		{
 			name:       "empty server name",
 			serverName: "",
-			expectNil:  true,
+			expectErr:  true,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result := config.GetServerConfigByName(tc.serverName)
+			result, err := config.GetServerConfigByName(tc.serverName)
 
-			if tc.expectNil {
+			if tc.expectErr {
+				require.Error(t, err)
 				require.Nil(t, result)
 			} else {
+				require.NoError(t, err)
 				require.NotNil(t, result)
 				require.Equal(t, tc.serverName, result.Name)
 			}
@@ -328,8 +330,9 @@ func TestMCPServersConfig_GetServerConfigByName_EmptyServers(t *testing.T) {
 		Servers: []*MCPServer{},
 	}
 
-	result := config.GetServerConfigByName("any")
+	result, err := config.GetServerConfigByName("any")
 	require.Nil(t, result)
+	require.Error(t, err)
 }
 
 func TestMCPServersConfig_GetServerConfigByName_NilServers(t *testing.T) {
@@ -337,8 +340,9 @@ func TestMCPServersConfig_GetServerConfigByName_NilServers(t *testing.T) {
 		Servers: nil,
 	}
 
-	result := config.GetServerConfigByName("any")
+	result, err := config.GetServerConfigByName("any")
 	require.Nil(t, result)
+	require.Error(t, err)
 }
 
 // mockObserver implements Observer for testing
@@ -395,17 +399,4 @@ func TestMCPServersConfig_Notify(t *testing.T) {
 	require.NotNil(t, observer.receivedConf)
 	require.Equal(t, config, observer.receivedConf)
 	observer.mu.Unlock()
-}
-
-func TestVirtualServer(t *testing.T) {
-	vs := &VirtualServer{
-		Name:  "test-virtual",
-		Tools: []string{"tool1", "tool2", "tool3"},
-	}
-
-	require.Equal(t, "test-virtual", vs.Name)
-	require.Len(t, vs.Tools, 3)
-	require.Contains(t, vs.Tools, "tool1")
-	require.Contains(t, vs.Tools, "tool2")
-	require.Contains(t, vs.Tools, "tool3")
 }

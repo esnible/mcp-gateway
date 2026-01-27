@@ -114,11 +114,9 @@ func TestConfigMapWriter_WriteAggregatedConfig(t *testing.T) {
 			},
 		}
 
-		// create initial secret with matching content
 		k8sClient := fake.NewClientBuilder().
 			WithScheme(scheme).
 			Build()
-
 		writer := NewSecretWriter(k8sClient, scheme)
 
 		// write once

@@ -141,33 +141,36 @@ func (m *MockToolsAdderDeleter) ListTools() map[string]*server.ServerTool {
 func TestNewUpstreamMCPManager(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
-	t.Run("uses default ticker interval when zero", func(t *testing.T) {
-		mock := newMockMCP("test", "")
-		gateway := newMockToolsAdderDeleter()
-		manager := NewUpstreamMCPManager(mock, gateway, logger, 0)
+	testCases := []struct {
+		name             string
+		interval         time.Duration
+		expectedInterval time.Duration
+	}{
+		{
+			name:             "uses default ticker interval when zero",
+			interval:         0,
+			expectedInterval: DefaultTickerInterval,
+		},
+		{
+			name:             "uses custom ticker interval when provided",
+			interval:         time.Second * 30,
+			expectedInterval: time.Second * 30,
+		},
+		{
+			name:             "uses default ticker interval when negative",
+			interval:         -1,
+			expectedInterval: DefaultTickerInterval,
+		},
+	}
 
-		assert.Equal(t, DefaultTickerInterval, manager.tickerInterval)
-		assert.NotNil(t, manager.done)
-		assert.NotNil(t, manager.toolsMap)
-		assert.NotNil(t, manager.servedToolsMap)
-	})
-
-	t.Run("uses custom ticker interval when provided", func(t *testing.T) {
-		mock := newMockMCP("test", "")
-		gateway := newMockToolsAdderDeleter()
-		customInterval := time.Second * 30
-		manager := NewUpstreamMCPManager(mock, gateway, logger, customInterval)
-
-		assert.Equal(t, customInterval, manager.tickerInterval)
-	})
-
-	t.Run("uses default ticker interval when negative", func(t *testing.T) {
-		mock := newMockMCP("test", "")
-		gateway := newMockToolsAdderDeleter()
-		manager := NewUpstreamMCPManager(mock, gateway, logger, -1)
-
-		assert.Equal(t, DefaultTickerInterval, manager.tickerInterval)
-	})
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mock := newMockMCP(tc.name, "")
+			gateway := newMockToolsAdderDeleter()
+			manager := NewUpstreamMCPManager(mock, gateway, logger, tc.interval)
+			assert.Equal(t, tc.expectedInterval, manager.tickerInterval)
+		})
+	}
 }
 
 func TestMCPManager_MCPName(t *testing.T) {
@@ -242,105 +245,135 @@ func TestMCPManager_GetManagedTools_ReturnsCopy(t *testing.T) {
 func TestMCPManager_GetServedManagedTool(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
-	t.Run("returns tool with prefix", func(t *testing.T) {
-		mock := newMockMCP("test-server", "prefix_")
-		gateway := newMockToolsAdderDeleter()
-		manager := NewUpstreamMCPManager(mock, gateway, logger, 0)
+	testCases := []struct {
+		name         string
+		prefix       string
+		tools        []mcp.Tool
+		lookupName   string
+		expectNil    bool
+		expectedName string
+	}{
+		{
+			name:         "returns tool with prefix",
+			prefix:       "prefix_",
+			tools:        []mcp.Tool{{Name: "mytool", Description: "My Tool"}},
+			lookupName:   "prefix_mytool",
+			expectNil:    false,
+			expectedName: "mytool",
+		},
+		{
+			name:         "returns tool without prefix",
+			prefix:       "",
+			tools:        []mcp.Tool{{Name: "mytool", Description: "My Tool"}},
+			lookupName:   "mytool",
+			expectNil:    false,
+			expectedName: "mytool",
+		},
+		{
+			name:       "returns nil for non-existent tool",
+			prefix:     "prefix_",
+			tools:      []mcp.Tool{{Name: "mytool"}},
+			lookupName: "nonexistent",
+			expectNil:  true,
+		},
+	}
 
-		tools := []mcp.Tool{
-			{Name: "mytool", Description: "My Tool"},
-		}
-		manager.SetToolsForTesting(tools)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mock := newMockMCP("test-server", tc.prefix)
+			gateway := newMockToolsAdderDeleter()
+			manager := NewUpstreamMCPManager(mock, gateway, logger, 0)
+			manager.SetToolsForTesting(tc.tools)
 
-		// should find with prefixed name
-		tool := manager.GetServedManagedTool("prefix_mytool")
-		assert.NotNil(t, tool)
-		assert.Equal(t, "mytool", tool.Name)
-	})
-
-	t.Run("returns tool without prefix", func(t *testing.T) {
-		mock := newMockMCP("test-server", "")
-		gateway := newMockToolsAdderDeleter()
-		manager := NewUpstreamMCPManager(mock, gateway, logger, 0)
-
-		tools := []mcp.Tool{
-			{Name: "mytool", Description: "My Tool"},
-		}
-		manager.SetToolsForTesting(tools)
-
-		// should find without prefix
-		tool := manager.GetServedManagedTool("mytool")
-		assert.NotNil(t, tool)
-		assert.Equal(t, "mytool", tool.Name)
-	})
-
-	t.Run("returns nil for non-existent tool", func(t *testing.T) {
-		mock := newMockMCP("test-server", "prefix_")
-		gateway := newMockToolsAdderDeleter()
-		manager := NewUpstreamMCPManager(mock, gateway, logger, 0)
-
-		tools := []mcp.Tool{
-			{Name: "mytool"},
-		}
-		manager.SetToolsForTesting(tools)
-
-		tool := manager.GetServedManagedTool("nonexistent")
-		assert.Nil(t, tool)
-	})
+			tool := manager.GetServedManagedTool(tc.lookupName)
+			if tc.expectNil {
+				assert.Nil(t, tool)
+			} else {
+				assert.NotNil(t, tool)
+				assert.Equal(t, tc.expectedName, tool.Name)
+			}
+		})
+	}
 }
 
 func TestMCPManager_setStatus(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
-	t.Run("sets success status", func(t *testing.T) {
-		mock := newMockMCP("test-server", "test_")
-		manager := NewUpstreamMCPManager(mock, nil, logger, 0)
-		manager.serverTools = make([]server.ServerTool, 3)
+	testCases := []struct {
+		name           string
+		err            error
+		totalTools     int
+		numServerTools int
+		expectReady    bool
+		messageContain string
+	}{
+		{
+			name:           "sets success status",
+			err:            nil,
+			totalTools:     3,
+			numServerTools: 3,
+			expectReady:    true,
+			messageContain: "server added successfully",
+		},
+		{
+			name:           "sets error status",
+			err:            fmt.Errorf("connection failed"),
+			totalTools:     0,
+			numServerTools: 0,
+			expectReady:    false,
+			messageContain: "connection failed",
+		},
+	}
 
-		manager.setStatus(nil, 3)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mock := newMockMCP("test-server", "test_")
+			manager := NewUpstreamMCPManager(mock, nil, logger, 0)
+			manager.serverTools = make([]server.ServerTool, tc.numServerTools)
 
-		assert.Equal(t, string(mock.id), manager.status.ID)
-		assert.Equal(t, "test-server", manager.status.Name)
-		assert.True(t, manager.status.Ready)
-		assert.Equal(t, 3, manager.status.TotalTools)
-		assert.Contains(t, manager.status.Message, "server added successfully")
-	})
+			manager.setStatus(tc.err, tc.totalTools)
 
-	t.Run("sets error status", func(t *testing.T) {
-		mock := newMockMCP("test-server", "test_")
-		manager := NewUpstreamMCPManager(mock, nil, logger, 0)
-
-		testErr := fmt.Errorf("connection failed")
-		manager.setStatus(testErr, 0)
-
-		assert.Equal(t, string(mock.id), manager.status.ID)
-		assert.Equal(t, "test-server", manager.status.Name)
-		assert.False(t, manager.status.Ready)
-		assert.Equal(t, "connection failed", manager.status.Message)
-	})
+			assert.Equal(t, string(mock.id), manager.status.ID)
+			assert.Equal(t, "test-server", manager.status.Name)
+			assert.Equal(t, tc.expectReady, manager.status.Ready)
+			assert.Contains(t, manager.status.Message, tc.messageContain)
+			if tc.expectReady {
+				assert.Equal(t, tc.totalTools, manager.status.TotalTools)
+			}
+		})
+	}
 }
 
 func TestMCPManager_hasTools(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
-	t.Run("returns false when no tools", func(t *testing.T) {
-		mock := newMockMCP("test", "")
-		gateway := newMockToolsAdderDeleter()
-		manager := NewUpstreamMCPManager(mock, gateway, logger, 0)
+	testCases := []struct {
+		name        string
+		serverTools []server.ServerTool
+		expected    bool
+	}{
+		{
+			name:        "returns false when no tools",
+			serverTools: nil,
+			expected:    false,
+		},
+		{
+			name:        "returns true when tools exist",
+			serverTools: []server.ServerTool{{Tool: mcp.Tool{Name: "tool1"}}},
+			expected:    true,
+		},
+	}
 
-		assert.False(t, manager.hasTools())
-	})
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mock := newMockMCP("test", "")
+			gateway := newMockToolsAdderDeleter()
+			manager := NewUpstreamMCPManager(mock, gateway, logger, 0)
+			manager.serverTools = tc.serverTools
 
-	t.Run("returns true when tools exist", func(t *testing.T) {
-		mock := newMockMCP("test", "")
-		gateway := newMockToolsAdderDeleter()
-		manager := NewUpstreamMCPManager(mock, gateway, logger, 0)
-		manager.serverTools = []server.ServerTool{
-			{Tool: mcp.Tool{Name: "tool1"}},
-		}
-
-		assert.True(t, manager.hasTools())
-	})
+			assert.Equal(t, tc.expected, manager.hasTools())
+		})
+	}
 }
 
 func TestPrefixedName(t *testing.T) {

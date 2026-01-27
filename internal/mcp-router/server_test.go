@@ -132,7 +132,6 @@ func TestProcess(t *testing.T) {
 										}, {
 											Header: &corev3.HeaderValue{
 												Key: "x-mcp-servername",
-												// @@@ Value: "mcpBroker",
 											},
 										},
 									},
@@ -234,12 +233,7 @@ func (m *mockProcessServer) Send(actualResp *extProcV3.ProcessingResponse) error
 		requireMatchingHeaderMutation(m.t, v.ImmediateResponse.Headers, actualImmediateBody.ImmediateResponse.Headers)
 		require.Equal(m.t, v.ImmediateResponse.GrpcStatus, actualImmediateBody.ImmediateResponse.GrpcStatus)
 		requireMatchingHTTPStatus(m.t, v.ImmediateResponse.Status, actualImmediateBody.ImmediateResponse.Status)
-	case *extProcV3.ProcessingResponse_ResponseBody:
-		actualResponseBody, ok := actualResp.Response.(*extProcV3.ProcessingResponse_ImmediateResponse)
-		require.True(m.t, ok, "expected response type to be ResponseBody, but it was a %T", actualResp.Response)
-		require.Equal(m.t, v.ResponseBody.Response, actualResponseBody.ImmediateResponse)
 	default:
-		_ = v
 		m.t.Fatalf("Unexpected response type %T", v)
 		return nil
 	}

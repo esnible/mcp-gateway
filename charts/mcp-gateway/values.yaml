@@ -15,11 +15,11 @@ imageController:
   tag: ""
   pullPolicy: IfNotPresent
 
-# ConfigMap for MCP gateway configuration
-configMap:
-  # Create a ConfigMap with default empty configuration
-  # The controller will update this with actual MCP server configurations
-  create: true
+# Controller configuration
+controller:
+  # Enable/disable controller deployment. Set to false for broker-only instances
+  # when running multiple MCP Gateway instances (only one controller is needed cluster-wide)
+  enabled: true
 
 # EnvoyFilter for Istio integration
 envoyFilter:
@@ -27,6 +27,8 @@ envoyFilter:
   create: true
   # Namespace where EnvoyFilter should be created (usually istio-system)
   namespace: istio-system
+  # Name of the envoy filter to create
+  name: mcp-ext-proc
 
 # Gateway flag configuration
 gateway:
@@ -39,3 +41,14 @@ broker:
   # Default 0 (disabled) is required for SSE notification support via GET /mcp.
   # Set > 0 to enable a timeout (will break SSE notifications).
   writeTimeoutSeconds: 0
+
+# MCPGatewayExtension configuration
+mcpGatewayExtension:
+  # Create an MCPGatewayExtension resource
+  create: true
+  # Gateway reference - the Gateway this MCP Gateway instance is responsible for
+  gatewayRef:
+    # Name of the Gateway
+    name: mcp-gateway
+    # Namespace of the Gateway (if different from release namespace, a ReferenceGrant will be created)
+    namespace: gateway-system

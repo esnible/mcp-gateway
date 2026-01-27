@@ -323,3 +323,10 @@ referencegrants
 refgrant
 spiffe
 SPIFFE
+credentialref
+mcpregistrationname
+namespacename
+objs
+Serverconfig
+upserted
+kuberenetes

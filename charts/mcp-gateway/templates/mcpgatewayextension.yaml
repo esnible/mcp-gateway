@@ -1,0 +1,17 @@
+{{- if .Values.mcpGatewayExtension.create }}
+apiVersion: mcp.kagenti.com/v1alpha1
+kind: MCPGatewayExtension
+metadata:
+  name: {{ include "mcp-gateway.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "mcp-gateway.labels" . | nindent 4 }}
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: Gateway
+    name: {{ .Values.mcpGatewayExtension.gatewayRef.name }}
+    {{- if .Values.mcpGatewayExtension.gatewayRef.namespace }}
+    namespace: {{ .Values.mcpGatewayExtension.gatewayRef.namespace }}
+    {{- end }}
+{{- end }}

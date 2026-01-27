@@ -37,11 +37,11 @@ help: ## Display this help
 
 # Build the combined broker and router
 mcp-broker-router:
-	go build -o bin/mcp-broker-router ./cmd/mcp-broker-router
+	go build -race -o bin/mcp-broker-router ./cmd/mcp-broker-router
 
 # Build the controller
 controller:
-	go build -o bin/mcp-controller ./cmd
+	go build -race -o bin/mcp-controller ./cmd
 
 # Build all binaries
 build: mcp-broker-router controller
@@ -128,24 +128,27 @@ install-crd: ## Install MCPServerRegistration and MCPVirtualServer CRDs
 # Deploy mcp-gateway components
 deploy: install-crd ## Deploy broker/router and controller to mcp-system namespace
 	@kubectl create namespace mcp-system --dry-run=client -o yaml | kubectl apply -f -
-	kubectl apply -k config/mcp-system/
+	kubectl apply -k config/mcp-gateway/overlays/mcp-system/
+
+# Deploy both mcp-system and mcp-second-instance
+deploy-multi: install-crd ## Deploy mcp-gateway to both mcp-system and mcp-second-instance namespaces
+	kubectl apply -k config/mcp-gateway/overlays/mcp-system/
+	kubectl apply -k config/mcp-gateway/overlays/mcp-second-instance/
 
 # Deploy only the broker/router
 deploy-broker: install-crd ## Deploy only the broker/router (without controller)
-	kubectl apply -k config/mcp-system
-	kubectl patch deployment mcp-broker-router -n mcp-system --patch-file config/mcp-system/poll-interval-patch.yaml
+	kubectl apply -k config/mcp-gateway/overlays/mcp-system/
+	kubectl patch deployment mcp-broker-router -n mcp-system --patch-file config/mcp-gateway/overlays/mcp-system/poll-interval-patch.yaml
 
 .PHONY: configure-redis
 configure-redis:  ## patch deployment with redis connection
-	kubectl apply -f config/mcp-system/redis-deployment.yaml
-	kubectl apply -f config/mcp-system/redis-service.yaml
-	kubectl patch deployment mcp-broker-router -n mcp-system --patch-file config/mcp-system/deployment-controller-redis-patch.yaml
+	kubectl apply -f config/mcp-gateway/overlays/mcp-system/redis-deployment.yaml
+	kubectl apply -f config/mcp-gateway/overlays/mcp-system/redis-service.yaml
+	kubectl patch deployment mcp-broker-router -n mcp-system --patch-file config/mcp-gateway/overlays/mcp-system/deployment-controller-redis-patch.yaml
 
 # Deploy only the controller
 deploy-controller: install-crd ## Deploy only the controller
-	kubectl apply -f config/mcp-system/namespace.yaml
-	kubectl apply -f config/mcp-system/rbac.yaml
-	kubectl apply -f config/mcp-system/deployment-controller.yaml
+	kubectl apply -k config/mcp-gateway/overlays/mcp-system/
 
 define load-image
 	echo "Loading image $(1) into Kind cluster..."
@@ -268,8 +271,9 @@ define reload-image
 endef
 
 .PHONY: reload-controller
-reload-controller: build docker-build kind ## Build, load to Kind, and restart controller
-	$(call reload-image)
+reload-controller: build kind ## Build, load to Kind, and restart controller
+	$(CONTAINER_ENGINE) build $(CONTAINER_ENGINE_EXTRA_FLAGS) --file Dockerfile.controller -t ghcr.io/kuadrant/mcp-controller:latest .	
+	$(call load-image,ghcr.io/kuadrant/mcp-controller:latest)	
 	@kubectl rollout restart -n mcp-system deployment/mcp-controller
 	@kubectl rollout status -n mcp-system deployment/mcp-controller --timeout=60s
 
@@ -307,12 +311,11 @@ update:
 
 .PHONY: fmt
 fmt:
-	go fmt ./...
-	goimports -w .
+	find . -name '*.go' ! -name '*deepcopy*.go' ! -path './vendor/*' -print0 | xargs -0 goimports -w
 
 .PHONY: vet
 vet:
-	go vet ./...
+	go vet $$(go list ./... | grep -v /zz_generated)
 
 .PHONY: golangci-lint
 golangci-lint:
@@ -402,7 +405,7 @@ fix-newlines:
 
 
 test-unit:
-	go test ./...
+	go test -v -race ./...
 
 .PHONY: test-controller-integration
 test-controller-integration: envtest gateway-api-crds ## Run controller integration tests
@@ -547,7 +550,7 @@ logs: ## Tail Istio gateway logs
 
 .PHONY: testwithcoverage
 testwithcoverage:
-	go test ./... -coverprofile=coverage.out
+	go test -race ./... -coverprofile=coverage.out
 
 .PHONY: coverage
 coverage: testwithcoverage

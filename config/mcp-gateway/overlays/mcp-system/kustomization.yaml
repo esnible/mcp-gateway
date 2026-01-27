@@ -1,0 +1,47 @@
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: mcp-system
+
+resources:
+  - ../../base
+  - namespace.yaml
+  - trusted-header-public-key.yaml
+
+components:
+  - ../../components/controller
+
+patches:
+  # patch ClusterRoleBinding to reference correct namespace
+  - target:
+      group: rbac.authorization.k8s.io
+      version: v1
+      kind: ClusterRoleBinding
+      name: mcp-controller
+    patch: |-
+      - op: replace
+        path: /subjects/0/namespace
+        value: mcp-system
+
+  # patch broker deployment with correct gateway host
+  - target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: mcp-broker-router
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/env/0/value
+        value: mcp.127-0-0-1.sslip.io
+
+  # patch HTTPRoute with correct hostname
+  - target:
+      group: gateway.networking.k8s.io
+      version: v1
+      kind: HTTPRoute
+      name: mcp-route
+    patch: |-
+      - op: replace
+        path: /spec/hostnames/0
+        value: mcp.127-0-0-1.sslip.io

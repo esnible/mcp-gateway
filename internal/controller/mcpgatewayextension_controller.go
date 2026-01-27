@@ -9,6 +9,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -17,23 +18,34 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	mcpv1alpha1 "github.com/Kuadrant/mcp-gateway/api/v1alpha1"
+	"github.com/Kuadrant/mcp-gateway/internal/config"
 	"github.com/go-logr/logr"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 const (
-	mcpGatewayExtensionFinalizer = "mcp.kagenti.com/finalizer"
+	mcpGatewayFinalizer = "mcp.kagenti.com/finalizer"
 	// gatewayIndexKey is the index used to improve look up of mcpgatewayextensions related to a gateway
 	gatewayIndexKey  = "spec.targetRef.gateway"
 	refGrantIndexKey = "spec.from.ref"
 )
 
+// ConfigWriterDeleter writes and deletes config
+type ConfigWriterDeleter interface {
+	DeleteConfig(ctx context.Context, namespaceName types.NamespacedName) error
+	EnsureConfigExists(ctx context.Context, namespaceName types.NamespacedName) error
+	WriteEmptyConfig(ctx context.Context, namespaceName types.NamespacedName) error
+}
+
 // MCPGatewayExtensionReconciler reconciles a MCPGatewayExtension object
 type MCPGatewayExtensionReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
-	log    logr.Logger
+	DirectAPIReader       client.Reader
+	Scheme                *runtime.Scheme
+	log                   logr.Logger
+	ConfigWriterDeleter   ConfigWriterDeleter
+	MCPExtFinderValidator MCPGatewayExtensionFinderValidator
 }
 
 // +kubebuilder:rbac:groups=mcp.kagenti.com,resources=mcpgatewayextensions,verbs=get;list;watch;create;update;patch;delete
@@ -62,9 +74,13 @@ func (r *MCPGatewayExtensionReconciler) Reconcile(ctx context.Context, req ctrl.
 
 	// handle deletion
 	if !mcpExt.DeletionTimestamp.IsZero() {
-		if controllerutil.ContainsFinalizer(mcpExt, mcpGatewayExtensionFinalizer) {
+		if controllerutil.ContainsFinalizer(mcpExt, mcpGatewayFinalizer) {
 			logger.Info("deleting mcpgatewayextension", "name", mcpExt.Name, "namespace", mcpExt.Namespace)
-			controllerutil.RemoveFinalizer(mcpExt, mcpGatewayExtensionFinalizer)
+			// TODO we write an empty config as deleting it currently would cause the gateway extension instance to crash. Once we have an operator in place deleting the mcpgatewayextension will remove the gateway extension instance also
+			if err := r.ConfigWriterDeleter.WriteEmptyConfig(ctx, config.NamespaceName(mcpExt.Namespace)); err != nil {
+				return ctrl.Result{}, err
+			}
+			controllerutil.RemoveFinalizer(mcpExt, mcpGatewayFinalizer)
 			if err := r.Update(ctx, mcpExt); err != nil {
 				return ctrl.Result{}, err
 			}
@@ -73,13 +89,14 @@ func (r *MCPGatewayExtensionReconciler) Reconcile(ctx context.Context, req ctrl.
 	}
 
 	// add finalizer if not present
-	if !controllerutil.ContainsFinalizer(mcpExt, mcpGatewayExtensionFinalizer) {
-		controllerutil.AddFinalizer(mcpExt, mcpGatewayExtensionFinalizer)
-		if err := r.Update(ctx, mcpExt); err != nil {
-			return ctrl.Result{}, err
-		}
+	if !controllerutil.ContainsFinalizer(mcpExt, mcpGatewayFinalizer) {
+		controllerutil.AddFinalizer(mcpExt, mcpGatewayFinalizer)
+		err := r.Update(ctx, mcpExt)
+		return ctrl.Result{}, err
 	}
 	// main reconcile status logic
+	// TODO ensure there is actually a mcpgateway instance in the mcpgatewayextension namespace
+
 	// check which gateway this resource is targeting and if in same namespace
 	inSameNS := mcpExt.Spec.TargetRef.Namespace == mcpExt.Namespace
 	targetGateway, err := r.gatewayTarget(ctx, mcpExt.Spec.TargetRef)
@@ -93,16 +110,19 @@ func (r *MCPGatewayExtensionReconciler) Reconcile(ctx context.Context, req ctrl.
 
 	// not in same namespace - check for a valid ReferenceGrant
 	if !inSameNS {
-		hasGrant, err := r.hasValidReferenceGrant(ctx, mcpExt)
+		hasGrant, err := r.MCPExtFinderValidator.HasValidReferenceGrant(ctx, mcpExt)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
 
 		if !hasGrant {
-			logger.Info("no valid ReferenceGrant found for cross-namespace reference",
+			logger.Info("no valid ReferenceGrant found for cross-namespace reference. Removing config and setting status",
 				"mcpgatewayextension", mcpExt.Name,
 				"mcpgatewayextension-namespace", mcpExt.Namespace,
 				"gateway-namespace", mcpExt.Spec.TargetRef.Namespace)
+			if err := r.ConfigWriterDeleter.WriteEmptyConfig(ctx, config.NamespaceName(mcpExt.Namespace)); err != nil {
+				return ctrl.Result{}, err
+			}
 			err := r.setReadyConditionAndUpdateStatus(ctx, metav1.ConditionFalse, mcpv1alpha1.ConditionReasonRefGrantRequired,
 				fmt.Sprintf("ReferenceGrant required in namespace %s to allow cross-namespace reference", mcpExt.Spec.TargetRef.Namespace), mcpExt)
 			return ctrl.Result{}, err
@@ -130,6 +150,13 @@ func (r *MCPGatewayExtensionReconciler) Reconcile(ctx context.Context, req ctrl.
 	}
 	// valid configuration
 	err = r.setReadyConditionAndUpdateStatus(ctx, metav1.ConditionTrue, mcpv1alpha1.ConditionReasonSuccess, "successfully verified and configured", mcpExt)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	// create an empty config if a config doesn't exist
+	if err := r.ConfigWriterDeleter.EnsureConfigExists(ctx, config.NamespaceName(mcpExt.Namespace)); err != nil {
+		return ctrl.Result{}, err
+	}
 	return ctrl.Result{}, err
 }
 
@@ -162,63 +189,8 @@ func (r *MCPGatewayExtensionReconciler) gatewayTarget(ctx context.Context, targe
 	return g, nil
 }
 
-// hasValidReferenceGrant checks if a valid ReferenceGrant exists that allows the MCPGatewayExtension
-// to reference a Gateway in a different namespace
-func (r *MCPGatewayExtensionReconciler) hasValidReferenceGrant(ctx context.Context, mcpExt *mcpv1alpha1.MCPGatewayExtension) (bool, error) {
-	// list ReferenceGrants in the target Gateway's namespace
-	refGrantList := &gatewayv1beta1.ReferenceGrantList{}
-	if err := r.List(ctx, refGrantList, client.InNamespace(mcpExt.Spec.TargetRef.Namespace)); err != nil {
-		return false, fmt.Errorf("failed to list ReferenceGrants: %w", err)
-	}
-
-	for _, rg := range refGrantList.Items {
-		if r.referenceGrantAllows(&rg, mcpExt) {
-			return true, nil
-		}
-	}
-	return false, nil
-}
-
-// referenceGrantAllows checks if a ReferenceGrant permits the MCPGatewayExtension to reference a Gateway
-func (r *MCPGatewayExtensionReconciler) referenceGrantAllows(rg *gatewayv1beta1.ReferenceGrant, mcpExt *mcpv1alpha1.MCPGatewayExtension) bool {
-	fromAllowed := false
-	toAllowed := false
-
-	// check if 'from' allows MCPGatewayExtension from its namespace
-	for _, from := range rg.Spec.From {
-		if string(from.Group) == mcpv1alpha1.GroupVersion.Group &&
-			string(from.Kind) == "MCPGatewayExtension" &&
-			string(from.Namespace) == mcpExt.Namespace {
-			fromAllowed = true
-			break
-		}
-	}
-
-	if !fromAllowed {
-		return false
-	}
-
-	// check if 'to' allows Gateway references
-	for _, to := range rg.Spec.To {
-		// empty group means core, but Gateway is in gateway.networking.k8s.io
-		if string(to.Group) == gatewayv1.GroupVersion.Group {
-			// empty kind means all kinds in the group, or specific Gateway kind
-			if to.Kind == "" || string(to.Kind) == "Gateway" {
-				// if name is specified, it must match; empty means all
-				if to.Name == nil || *to.Name == "" || string(*to.Name) == mcpExt.Spec.TargetRef.Name {
-					toAllowed = true
-					break
-				}
-			}
-		}
-	}
-
-	return toAllowed
-}
-
 func mcpExtToRefGrantIndexValue(mext mcpv1alpha1.MCPGatewayExtension) string {
-	//TODO check if this index is really needed?
-	return fmt.Sprintf("%s%s%s", mext.GroupVersionKind().Group, mext.GroupVersionKind().Kind, mext.Namespace)
+	return fmt.Sprintf("%s%s%s", "mcp.kagenti.com", "MCPGatewayExtension", mext.Namespace)
 
 }
 
@@ -238,9 +210,9 @@ func refGrantToMCPExtIndexValue(r gatewayv1beta1.ReferenceGrant) string {
 
 // setupIndexExtensionToGateway creates an index for the gateway targeted by an MCPGatewayExtension
 // This improves discovery when the controller receives a gateway change event
-func setupIndexExtensionToGateway(indexer client.FieldIndexer) error {
+func setupIndexExtensionToGateway(ctx context.Context, indexer client.FieldIndexer) error {
 	if err := indexer.IndexField(
-		context.Background(),
+		ctx,
 		&mcpv1alpha1.MCPGatewayExtension{},
 		gatewayIndexKey,
 		func(obj client.Object) []string {
@@ -252,26 +224,6 @@ func setupIndexExtensionToGateway(indexer client.FieldIndexer) error {
 		},
 	); err != nil {
 		return fmt.Errorf("failed to setup index mcpgatewayextension to gateway %w", err)
-	}
-	return nil
-}
-
-// setupIndexExtensionToGateway creates an index for the ReferenceGrant allowing an MCPGatewayExtension to target a gateway
-// This improves discovery when the controller receives a ReferenceGrant change event
-func setupIndexExtensionToReferenceGrant(indexer client.FieldIndexer) error {
-	if err := indexer.IndexField(
-		context.Background(),
-		&mcpv1alpha1.MCPGatewayExtension{},
-		refGrantIndexKey,
-		func(obj client.Object) []string {
-			mcpGatewayExt, ok := obj.(*mcpv1alpha1.MCPGatewayExtension)
-			if ok {
-				return []string{mcpExtToRefGrantIndexValue(*mcpGatewayExt)}
-			}
-			return nil
-		},
-	); err != nil {
-		return fmt.Errorf("failed to setup index mcpgatewayextension to reference grants %w", err)
 	}
 	return nil
 }
@@ -298,11 +250,34 @@ func (r *MCPGatewayExtensionReconciler) findMCPGatewayExtForGateway(ctx context.
 		r.log.Error(err, "failed to list existing mcpgatewayextension for gateway ", "gateway", gateway)
 		return requests
 	}
-	r.log.V(1).Info("found mcpgatewayextensions by gateway ", "total", len(mcpGatewayExtList.Items), "gateway", gateway.Name)
 	for _, ext := range mcpGatewayExtList.Items {
 		requests = append(requests, reconcile.Request{NamespacedName: client.ObjectKeyFromObject(&ext)})
 	}
 	return requests
+}
+
+// setupIndexExtensionToGateway creates an index for the ReferenceGrant allowing an MCPGatewayExtension to target a gateway
+// This improves discovery when the controller receives a ReferenceGrant change event
+func setupIndexExtensionToReferenceGrant(ctx context.Context, indexer client.FieldIndexer) error {
+	logger := logf.FromContext(ctx)
+	if err := indexer.IndexField(
+		ctx,
+		&mcpv1alpha1.MCPGatewayExtension{},
+		refGrantIndexKey,
+		func(obj client.Object) []string {
+			mcpGatewayExt, ok := obj.(*mcpv1alpha1.MCPGatewayExtension)
+			if ok {
+				value := mcpExtToRefGrantIndexValue(*mcpGatewayExt)
+				logger.V(1).Info("setupIndexExtensionToReferenceGrant", "ext", mcpGatewayExt.Name, "index", value)
+				return []string{value}
+			}
+
+			return nil
+		},
+	); err != nil {
+		return fmt.Errorf("failed to setup index mcpgatewayextension to reference grants %w", err)
+	}
+	return nil
 }
 
 func (r *MCPGatewayExtensionReconciler) findMCPGatewayExtForReferenceGrant(ctx context.Context, obj client.Object) []reconcile.Request {
@@ -311,9 +286,11 @@ func (r *MCPGatewayExtensionReconciler) findMCPGatewayExtForReferenceGrant(ctx c
 	if !ok {
 		return requests
 	}
+	r.log.V(1).Info("findMCPGatewayExtForReferenceGrant", "ref grant", ref.Spec.From)
 	if len(ref.Spec.From) == 0 {
 		return requests
 	}
+	r.log.V(1).Info("findMCPGatewayExtForReferenceGrant", "ref grant", refGrantToMCPExtIndexValue(*ref))
 	mcpGatewayExtList := &mcpv1alpha1.MCPGatewayExtensionList{}
 	if err := r.List(ctx, mcpGatewayExtList,
 		client.MatchingFields{refGrantIndexKey: refGrantToMCPExtIndexValue(*ref)},
@@ -329,14 +306,13 @@ func (r *MCPGatewayExtensionReconciler) findMCPGatewayExtForReferenceGrant(ctx c
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *MCPGatewayExtensionReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *MCPGatewayExtensionReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
 	r.log = mgr.GetLogger()
-
-	if err := setupIndexExtensionToGateway(mgr.GetFieldIndexer()); err != nil {
+	if err := setupIndexExtensionToGateway(ctx, mgr.GetFieldIndexer()); err != nil {
 		return fmt.Errorf("failed to setup manager %w", err)
 	}
 
-	if err := setupIndexExtensionToReferenceGrant(mgr.GetFieldIndexer()); err != nil {
+	if err := setupIndexExtensionToReferenceGrant(ctx, mgr.GetFieldIndexer()); err != nil {
 		return fmt.Errorf("failed to setup manager %w", err)
 	}
 

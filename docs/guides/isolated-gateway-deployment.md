@@ -1,6 +1,6 @@
 # Isolated MCP Gateway Deployment
 
-This guide demonstrates how to deploy MCP Gateway instances for your environment. Each deployment is given its own configuration for which MCP Servers to manage based on the MCPGatewayExtension resource that defines which Gateway it expects request from.
+This guide demonstrates how to deploy MCP Gateway instances for your environment. Each deployment is given its own configuration for MCP Servers to manage based on the MCPGatewayExtension resource that defines which Gateway it expects request from. This allows for multiple MCP Gateway instances to be deployed within a single cluster.
 
 This guide assumes some knowledge about configuring an MCPServerRegistration. You can find more information in the following guide [register-mcp-servers](./register-mcp-servers.md).
 
@@ -17,7 +17,7 @@ MCPServerRegistration resources are only processed when a valid MCPGatewayExtens
 ## Prerequisites
 
 - Kubernetes cluster with Gateway API support
-- Istio installed as Gateway API provider
+- Istio installed as the Gateway API provider
 - MCP Gateway CRDs installed
 - Helm 3.x
 
@@ -45,7 +45,7 @@ MCPServerRegistration resources are only processed when a valid MCPGatewayExtens
 
 Each MCPGatewayExtension targets a different Gateway. The controller creates configuration secrets in the same namespace(s) as valid MCPGatewayExtension(s), which are mounted into the broker/router deployments.
 
-For cross-namespace Gateway references, a ReferenceGrant must exist in the Gateway's namespace.
+For cross-namespace Gateway references with a MCPGatewayExtension, a ReferenceGrant must exist in the target Gateway's namespace.
 
 ## Step 1: Deploy the MCP Controller
 
@@ -68,6 +68,8 @@ kubectl create namespace team-alpha
 ```
 
 ## Step 3: Deploy MCP Gateway Instance
+
+> **Note**: To skip automatic MCPGatewayExtension creation (e.g., for manual control), set `--set mcpGatewayExtension.create=false` and create the resources manually as shown in the [Manual Resource Creation](#manual-resource-creation) section.
 
 Deploy the broker and router into the team's namespace. The Helm chart automatically creates the MCPGatewayExtension and ReferenceGrant (for cross-namespace references):
 
@@ -95,10 +97,6 @@ Wait for the MCPGatewayExtension to become ready:
 ```bash
 kubectl wait --for=condition=Ready mcpgatewayextension/mcp-gateway -n team-alpha --timeout=60s
 ```
-
-> **Note**: To skip automatic MCPGatewayExtension creation (e.g., for manual control), set `--set mcpGatewayExtension.create=false` and create the resources manually as shown in the [Manual Resource Creation](#manual-resource-creation) section.
-
-
 
 ## Step 4: Register MCP Servers
 

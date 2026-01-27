@@ -20,29 +20,8 @@ The MCPGatewayExtension tells the controller which Gateway this MCP Gateway inst
 
 ## Step 1: Create MCPGatewayExtension
 
-First, create an MCPGatewayExtension to enable MCP Gateway for your Gateway. The MCPGatewayExtension must be in the same namespace as your MCP Gateway broker/router deployment.
+First, create an MCPGatewayExtension in the same namespace as your MCP Gateway broker/router deployment. It should target a unique Gateway resource. 
 
-If the Gateway is in a different namespace, create a ReferenceGrant first:
-
-```bash
-kubectl apply -f - <<EOF
-apiVersion: gateway.networking.k8s.io/v1beta1
-kind: ReferenceGrant
-metadata:
-  name: allow-mcp-extension
-  namespace: gateway-system  # Gateway's namespace
-spec:
-  from:
-    - group: mcp.kagenti.com
-      kind: MCPGatewayExtension
-      namespace: mcp-test  # MCPGatewayExtension's namespace
-  to:
-    - group: gateway.networking.k8s.io
-      kind: Gateway
-EOF
-```
-
-Then create the MCPGatewayExtension:
 
 ```bash
 kubectl apply -f - <<EOF
@@ -64,6 +43,26 @@ Wait for it to become ready:
 
 ```bash
 kubectl wait --for=condition=Ready mcpgatewayextension/mcp-extension -n mcp-test --timeout=60s
+```
+
+If your target Gateway is in a different namespace than your MCPGatewayExtension, you will also need to create a ReferenceGrant:
+
+```bash
+kubectl apply -f - <<EOF
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: allow-mcp-extension
+  namespace: gateway-system  # Gateway's namespace
+spec:
+  from:
+    - group: mcp.kagenti.com
+      kind: MCPGatewayExtension
+      namespace: mcp-test  # MCPGatewayExtension's namespace
+  to:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+EOF
 ```
 
 Skip the ReferenceGrant if the MCPGatewayExtension is in the same namespace as the Gateway.

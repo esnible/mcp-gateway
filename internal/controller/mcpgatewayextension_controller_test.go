@@ -166,6 +166,10 @@ func (m *mockConfigWriterDeleter) EnsureConfigExists(ctx context.Context, namesp
 	return nil
 }
 
+func (m *mockConfigWriterDeleter) WriteEmptyConfig(ctx context.Context, namespaceName types.NamespacedName) error {
+	return nil
+}
+
 // newTestReconciler creates a new MCPGatewayExtensionReconciler for testing
 func newTestReconciler() *MCPGatewayExtensionReconciler {
 	return &MCPGatewayExtensionReconciler{

@@ -250,7 +250,6 @@ func (r *MCPGatewayExtensionReconciler) findMCPGatewayExtForGateway(ctx context.
 		r.log.Error(err, "failed to list existing mcpgatewayextension for gateway ", "gateway", gateway)
 		return requests
 	}
-	//r.log.V(1).Info("found mcpgatewayextensions by gateway ", "total", len(mcpGatewayExtList.Items), "gateway", gateway.Name)
 	for _, ext := range mcpGatewayExtList.Items {
 		requests = append(requests, reconcile.Request{NamespacedName: client.ObjectKeyFromObject(&ext)})
 	}

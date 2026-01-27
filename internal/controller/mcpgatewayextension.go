@@ -85,7 +85,7 @@ func (r *MCPGatewayExtensionValidator) FindValidMCPGatewayExtsForGateway(ctx con
 	logger.V(1).Info("found mcpgatewayextensions", "total", len(mcpGatewayExtList.Items))
 	for _, mg := range mcpGatewayExtList.Items {
 		if mg.DeletionTimestamp != nil {
-			logger.V(1).Info("found deleteting mcpgatewayextensions not including as not valid", "name", mg.Name)
+			logger.V(1).Info("found deleting mcpgatewayextensions not including as not valid", "name", mg.Name)
 			continue
 		}
 

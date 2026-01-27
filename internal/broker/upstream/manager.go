@@ -66,7 +66,7 @@ type MCPManager struct {
 	// tickerInterval is the interval between backend health checks
 	tickerInterval time.Duration
 	gatewayServer  ToolsAdderDeleter
-	// serverTools is an intenal copy that contains the managed MCP's tools with prefixed names. It is these that are externally available via the gateway
+	// serverTools is an internal copy that contains the managed MCP's tools with prefixed names. It is these that are externally available via the gateway
 	serverTools []server.ServerTool
 	// tools is the original set from MCP server with no prefix
 	tools []mcp.Tool
@@ -231,11 +231,7 @@ func (man *MCPManager) manage(ctx context.Context) {
 	})
 
 	man.serverTools = append(man.serverTools, toAdd...)
-
 	man.logger.Debug("internal tools", "upstream mcp server", man.MCP.ID(), "total", len(man.serverTools))
-	for _, t := range man.serverTools {
-		man.logger.Debug("updated gateway tools", "upstream mcp server", man.MCP.ID(), "tool", t.Tool.Name)
-	}
 	man.toolsLock.Unlock()
 	man.setStatus(nil, numberOfTools)
 }

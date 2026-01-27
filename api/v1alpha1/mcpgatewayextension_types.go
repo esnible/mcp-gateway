@@ -19,6 +19,8 @@ const (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status",description="Ready status"
+
 // MCPGatewayExtensionSpec defines the desired state of MCPGatewayExtension
 type MCPGatewayExtensionSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster

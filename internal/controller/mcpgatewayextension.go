@@ -15,6 +15,7 @@ import (
 // MCPGatewayExtensionValidator finds and validates MCPGatewayExtensions
 type MCPGatewayExtensionValidator struct {
 	client.Client
+	DirectAPIReader client.Reader // uncached reader,
 }
 
 // HasValidReferenceGrant checks if a valid ReferenceGrant exists that allows the MCPGatewayExtension
@@ -83,6 +84,10 @@ func (r *MCPGatewayExtensionValidator) FindValidMCPGatewayExtsForGateway(ctx con
 	}
 	logger.V(1).Info("found mcpgatewayextensions", "total", len(mcpGatewayExtList.Items))
 	for _, mg := range mcpGatewayExtList.Items {
+		if mg.DeletionTimestamp != nil {
+			logger.V(1).Info("found deleteting mcpgatewayextensions not including as not valid", "name", mg.Name)
+			continue
+		}
 
 		if mg.Namespace == g.Namespace {
 			validExtensions = append(validExtensions, &mg)

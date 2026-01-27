@@ -27,6 +27,8 @@ envoyFilter:
   create: true
   # Namespace where EnvoyFilter should be created (usually istio-system)
   namespace: istio-system
+  # Name of the envoy filter to create
+  name: mcp-ext-proc
 
 # Gateway flag configuration
 gateway:

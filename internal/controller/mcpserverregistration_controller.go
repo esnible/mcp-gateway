@@ -175,7 +175,7 @@ func (r *MCPReconciler) Reconcile(ctx context.Context, req reconcile.Request) (r
 	// is there a valid mcpgatewayextension
 	validNamespaces := []string{}
 	for _, vg := range validGateways {
-		validMcpGatewayExtensions, err := r.MCPExtFinderValidator.FindValidMCPGatewayExtsForGateway(ctx, vg)
+		mcpGatewayExtensions, err := r.MCPExtFinderValidator.FindValidMCPGatewayExtsForGateway(ctx, vg)
 		if err != nil {
 			logger.Error(err, "failed to find valid mcpgatewayextension ", "gateway", vg, "mcpserverregistration", mcpsr)
 			if err := r.updateStatus(ctx, mcpsr, false, err.Error(), 0); err != nil {
@@ -186,7 +186,7 @@ func (r *MCPReconciler) Reconcile(ctx context.Context, req reconcile.Request) (r
 				return ctrl.Result{}, fmt.Errorf("reconcile failed: status update failed %w", err)
 			}
 		}
-		if len(validMcpGatewayExtensions) == 0 {
+		if len(mcpGatewayExtensions) == 0 {
 			// this is not an error so we are going to exit
 			if err := r.updateStatus(ctx, mcpsr, false, "no valid mcpgatewayextensions configured", 0); err != nil {
 				if errors.IsConflict(err) {
@@ -197,7 +197,7 @@ func (r *MCPReconciler) Reconcile(ctx context.Context, req reconcile.Request) (r
 			}
 			return ctrl.Result{}, nil
 		}
-		for _, vext := range validMcpGatewayExtensions {
+		for _, vext := range mcpGatewayExtensions {
 			validNamespaces = append(validNamespaces, vext.Namespace)
 		}
 	}
@@ -227,15 +227,18 @@ func (r *MCPReconciler) Reconcile(ctx context.Context, req reconcile.Request) (r
 	}
 
 	// Everything is in place now so we will now poll the gateway to check the registration status of the mcpserver
-	if err := r.setMCPServerRegistrationStatus(ctx, mcpsr, string(mcpServerconfig.ID())); err != nil {
-		if strings.Contains(err.Error(), "mcp server is not present in gateway yet") {
-			logger.V(1).Info("config not loaded in gateway yet. Will retry status check", "mcpserverregistration", mcpsr.Name)
-			// no point hammering the gateway when we know we are waiting for the config to be loaded
-			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+	// NOTE We loop here but there should only ever be one
+	for _, mcpExtensionNS := range validNamespaces {
+		if err := r.setMCPServerRegistrationStatus(ctx, mcpExtensionNS, mcpsr, string(mcpServerconfig.ID())); err != nil {
+			if strings.Contains(err.Error(), "mcp server is not present in gateway yet") {
+				logger.V(1).Info("config not loaded in gateway yet. Will retry status check", "mcpserverregistration", mcpsr.Name)
+				// no point hammering the gateway when we know we are waiting for the config to be loaded
+				return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+			}
+			logger.Error(err, "failed to set mcpserverregistration status", "mcpserverregistration", mcpsr.Name)
+			// TODO handle case where this keep failing forever we can prob requeue on specific err type
+			return reconcile.Result{}, err
 		}
-		logger.Error(err, "failed to set mcpserverregistration status", "mcpserverregistration", mcpsr.Name)
-		// TODO handle case where this keep failing forever we can prob requeue on specific err type
-		return reconcile.Result{}, err
 	}
 
 	return reconcile.Result{}, nil
@@ -304,13 +307,13 @@ func (r *MCPReconciler) getTargetGatewaysFromParentRef(ctx context.Context, pare
 }
 
 // reconcileMCPServerRegistration handles MCPServerRegistration reconciliation (existing logic)
-func (r *MCPReconciler) setMCPServerRegistrationStatus(ctx context.Context, mcpsr *mcpv1alpha1.MCPServerRegistration, serverID string) error {
+func (r *MCPReconciler) setMCPServerRegistrationStatus(ctx context.Context, mcpGatewayExtNS string, mcpsr *mcpv1alpha1.MCPServerRegistration, serverID string) error {
 	log := logf.FromContext(ctx)
-	log.V(1).Info("setMCPServerRegistrationStatus", "mcpregistrationname", mcpsr.Name, "namespace", mcpsr.Namespace)
+	log.V(1).Info("setMCPServerRegistrationStatus", "mcpregistrationname", mcpsr.Name, "valid gateway extension namespace", mcpGatewayExtNS)
 
 	validator := NewServerValidator(r.Client)
-	// TODO this currently lists all servers
-	statusResponse, err := validator.ValidateServers(ctx)
+	// TODO this currently lists all servers in the extension
+	statusResponse, err := validator.ValidateServers(ctx, mcpGatewayExtNS)
 	if err != nil {
 		log.Error(err, "Failed to validate server status via broker")
 		ready, message := false, fmt.Sprintf("Validation failed: %v", err)

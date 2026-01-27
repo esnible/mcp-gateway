@@ -2,6 +2,8 @@
 
 This guide demonstrates how to deploy MCP Gateway instances for your environment. Each deployment is given its own configuration for MCP Servers to manage based on the MCPGatewayExtension resource that defines which Gateway it expects request from. This allows for multiple MCP Gateway instances to be deployed within a single cluster.
 
+This guide assumes some knowledge about exposing MCP servers via a HTTPRoute. You can find more info in the following guide [configure-mcp-gateway-listener](./configure-mcp-gateway-listener-and-router.md)
+
 This guide assumes some knowledge about configuring an MCPServerRegistration. You can find more information in the following guide [register-mcp-servers](./register-mcp-servers.md).
 
 ## Overview
@@ -77,7 +79,9 @@ Deploy the broker and router into the team's namespace. The Helm chart automatic
 helm install mcp-gateway ./charts/mcp-gateway \
   --namespace team-alpha \
   --set envoyFilter.create=true \
+  --set controller.enabled=false \  
   --set envoyFilter.namespace=istio-system \
+  --set envoyFilter.name=team-alpha-gateway \  
   --set gateway.publicHost=team-alpha.mcp.example.com \
   --set mcpGatewayExtension.gatewayRef.name=mcp-gateway \
   --set mcpGatewayExtension.gatewayRef.namespace=gateway-system
@@ -154,10 +158,20 @@ metadata:
 spec:
   gatewayClassName: istio
   listeners:
-    - name: http
+    - allowedRoutes:
+        namespaces:
+          from: All
+      hostname: mcp.alpha.127-0-0-1.sslip.io
+      name: mcp
       port: 8080
       protocol: HTTP
-      hostname: "*.team-beta.example.com"
+    - allowedRoutes:
+        namespaces:
+          from: All
+      hostname: '*.alpha.mcp.local'
+      name: mcps
+      port: 8080
+      protocol: HTTP
 EOF
 
 # Deploy broker/router (Helm automatically creates MCPGatewayExtension and ReferenceGrant)
@@ -165,12 +179,35 @@ helm install mcp-gateway ./charts/mcp-gateway \
   --namespace team-beta \
   --set envoyFilter.create=true \
   --set envoyFilter.namespace=istio-system \
-  --set gateway.publicHost=mcp.team-beta.example.com \
+  --set envoyFilter.name=team-beta-gateway \
+  --set controller.enabled=false \
+  --set gateway.publicHost=alpha.127-0-0-1.sslip.io \
   --set mcpGatewayExtension.gatewayRef.name=team-beta-gateway \
   --set mcpGatewayExtension.gatewayRef.namespace=gateway-system
 ```
 
-Each team now has their own isolated MCP Gateway instance targeting separate Gateways.
+## Verification
+
+Wait for the MCPGatewayExtension to become ready:
+
+```bash
+kubectl wait --for=condition=Ready mcpgatewayextension/mcp-gateway -n team-beta --timeout=60s
+```
+
+Check that the configuration secret was created:
+
+```bash
+kubectl get secret mcp-gateway-config -n team-beta -o jsonpath='{.data.config\.yaml}' | base64 -d
+```
+
+Expected Output:
+
+```yaml
+servers: []
+virtualServers: []
+```
+
+Each team now has their own isolated MCP Gateway instance targeting separate Gateways. You can now create MCPServerRegistrations resources targeting HTTPRoute for your MCP backends.
 
 ## Limitations
 

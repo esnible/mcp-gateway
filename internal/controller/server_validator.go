@@ -39,12 +39,12 @@ func NewServerValidator(k8sClient client.Client) *ServerValidator {
 }
 
 // ValidateServers validates MCP servers by calling the broker's /status endpoints
-func (v *ServerValidator) ValidateServers(ctx context.Context) (*broker.StatusResponse, error) {
+func (v *ServerValidator) ValidateServers(ctx context.Context, namespace string) (*broker.StatusResponse, error) {
 	logger := log.FromContext(ctx)
 
 	// get endpoint slices for the broker service
 	endpointSliceList := &discoveryv1.EndpointSliceList{}
-	err := v.k8sClient.List(ctx, endpointSliceList, client.InNamespace(v.namespace), client.MatchingLabels{
+	err := v.k8sClient.List(ctx, endpointSliceList, client.InNamespace(namespace), client.MatchingLabels{
 		"app.kubernetes.io/component": "mcp-broker",
 	})
 	if err != nil {

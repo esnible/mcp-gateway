@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       chart_version:
-        description: 'Chart version to release (e.g., 0.4.2)'
+        description: 'Chart version to release (e.g., 0.4.2, 0.5.0-rc1)'
         required: true
         type: string
       app_version:
@@ -63,8 +63,8 @@ jobs:
 
     - name: Validate chart version format
       run: |
-        if [[ ! "${{ steps.versions.outputs.chart_version }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-          echo "Error: Chart version must be in format X.Y.Z (e.g., 0.4.2)"
+        if [[ ! "${{ steps.versions.outputs.chart_version }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)*)?$ ]]; then
+          echo "Error: Chart version must be in semver format X.Y.Z or X.Y.Z-prerelease (e.g., 0.4.2, 0.5.0-rc1)"
           echo "Got: ${{ steps.versions.outputs.chart_version }}"
           exit 1
         fi

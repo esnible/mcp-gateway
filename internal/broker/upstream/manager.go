@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"reflect"
+	"slices"
 	"sync"
 	"time"
 
@@ -65,7 +66,7 @@ type MCPManager struct {
 	// tickerInterval is the interval between backend health checks
 	tickerInterval time.Duration
 	gatewayServer  ToolsAdderDeleter
-	// serverTools contains the managed MCP's tools with prefixed names. It is these that are externally available via the gateway
+	// serverTools is an intenal copy that contains the managed MCP's tools with prefixed names. It is these that are externally available via the gateway
 	serverTools []server.ServerTool
 	// tools is the original set from MCP server with no prefix
 	tools []mcp.Tool
@@ -103,6 +104,7 @@ func NewUpstreamMCPManager(upstream MCP, gatewaySever ToolsAdderDeleter, logger 
 		done:           make(chan struct{}),
 		toolsMap:       map[string]mcp.Tool{},
 		servedToolsMap: map[string]mcp.Tool{},
+		serverTools:    []server.ServerTool{},
 	}
 }
 
@@ -139,7 +141,7 @@ func (man *MCPManager) Start(ctx context.Context) {
 func (man *MCPManager) Stop() {
 	man.stopOnce.Do(func() {
 		man.ticker.Stop()
-		man.removeTools()
+		man.removeAllTools()
 		if err := man.MCP.Disconnect(); err != nil {
 			man.logger.Error("failed to disconnect during stop", "upstream mcp server", man.MCP.ID(), "error", err)
 		}
@@ -154,9 +156,6 @@ func (man *MCPManager) registerCallbacks(ctx context.Context) func() {
 		man.MCP.OnNotification(func(notification mcp.JSONRPCNotification) {
 			if notification.Method == notificationToolsListChanged {
 				man.logger.Debug("received notification", "upstream mcp server", man.MCP.ID(), "notification", notification)
-				man.toolsLock.Lock()
-				man.serverTools = []server.ServerTool{}
-				man.toolsLock.Unlock()
 				man.manage(ctx)
 				return
 			}
@@ -177,7 +176,7 @@ func (man *MCPManager) manage(ctx context.Context) {
 	man.logger.Debug("attempting to connect", "upstream mcp server", man.MCP.ID())
 	if err := man.MCP.Connect(ctx, man.registerCallbacks(ctx)); err != nil {
 		err = fmt.Errorf("failed to connect to upstream mcp %s removing tools : %w", man.MCP.ID(), err)
-		man.removeTools()
+		man.removeAllTools()
 		// we call disconnect here as we may have connected but failed to initialize
 		_ = man.MCP.Disconnect()
 		man.setStatus(err, numberOfTools)
@@ -187,14 +186,9 @@ func (man *MCPManager) manage(ctx context.Context) {
 	if err := man.MCP.Ping(ctx); err != nil {
 		err = fmt.Errorf("upstream mcp failed to ping server %s removing tools : %w", man.MCP.ID(), err)
 		man.logger.Error("ping failed", "upstream mcp server", man.MCP.ID(), "error", err)
-		man.removeTools()
+		man.removeAllTools()
 		_ = man.MCP.Disconnect()
 		man.setStatus(err, numberOfTools)
-		return
-	}
-
-	if man.hasTools() && man.MCP.SupportsToolsListChanged() {
-		man.logger.Debug("tools already registered, waiting for change notification", "upstream mcp server", man.MCP.ID())
 		return
 	}
 
@@ -206,6 +200,7 @@ func (man *MCPManager) manage(ctx context.Context) {
 		man.setStatus(err, numberOfTools)
 		return
 	}
+	// always compare the tools without prefix
 	toAdd, toRemove := man.diffTools(current, fetched)
 	if err := man.findToolConflicts(toAdd); err != nil {
 		err = fmt.Errorf("upstream mcp failed to add tools to gateway %s : %w", man.MCP.ID(), err)
@@ -219,6 +214,7 @@ func (man *MCPManager) manage(ctx context.Context) {
 	// set a tools map for quick look up by other functions
 	man.toolsMap = map[string]mcp.Tool{}
 	man.servedToolsMap = map[string]mcp.Tool{}
+	// we always use any prefix here as it is what the client will call
 	for _, newTool := range fetched {
 		man.toolsMap[newTool.Name] = newTool
 		toolName := prefixedName(man.MCP.GetPrefix(), newTool.Name)
@@ -228,7 +224,18 @@ func (man *MCPManager) manage(ctx context.Context) {
 	man.logger.Debug("updating gateway tools", "upstream mcp server", man.MCP.ID(), "adding", len(toAdd), "removing", len(toRemove))
 	man.gatewayServer.DeleteTools(toRemove...)
 	man.gatewayServer.AddTools(toAdd...)
-	man.serverTools = toAdd
+
+	// rebuild our internal tools
+	man.serverTools = slices.DeleteFunc(man.serverTools, func(tool server.ServerTool) bool {
+		return slices.Contains(toRemove, tool.Tool.Name)
+	})
+
+	man.serverTools = append(man.serverTools, toAdd...)
+
+	man.logger.Debug("internal tools", "upstream mcp server", man.MCP.ID(), "total", len(man.serverTools))
+	for _, t := range man.serverTools {
+		man.logger.Debug("updated gateway tools", "upstream mcp server", man.MCP.ID(), "tool", t.Tool.Name)
+	}
 	man.toolsLock.Unlock()
 	man.setStatus(nil, numberOfTools)
 }
@@ -237,12 +244,6 @@ func (man *MCPManager) manage(ctx context.Context) {
 // no locking is done here as it is expected to be called multiple times
 func (man *MCPManager) GetStatus() ServerValidationStatus {
 	return man.status
-}
-
-func (man *MCPManager) hasTools() bool {
-	man.toolsLock.RLock()
-	defer man.toolsLock.RUnlock()
-	return len(man.serverTools) > 0
 }
 
 func (man *MCPManager) setStatus(err error, toolCount int) {
@@ -281,7 +282,7 @@ func (man *MCPManager) findToolConflicts(mcpTools []server.ServerTool) error {
 
 			if existingToolName == tool.Tool.GetName() && toolID != string(man.MCP.ID()) {
 				man.logger.Debug("tool name conflict found", "upstream mcp server", man.MCP.ID(), "existing", existingToolName, "new", tool.Tool.GetName(), "conflicting server", toolID)
-				conflictingToolNames = append(conflictingToolNames, toolID)
+				conflictingToolNames = append(conflictingToolNames, tool.Tool.GetName())
 			}
 
 		}
@@ -348,15 +349,17 @@ func (man *MCPManager) SetStatusForTesting(status ServerValidationStatus) {
 	man.status = status
 }
 
-func (man *MCPManager) removeTools() {
+func (man *MCPManager) removeAllTools() {
 	man.toolsLock.Lock()
 	defer man.toolsLock.Unlock()
 	toolsToRemove := make([]string, 0, len(man.serverTools))
+	man.logger.Debug("removing tools from gateway", "upstream mcp server", man.MCP.ID(), "total", len(man.serverTools))
 	for _, tool := range man.serverTools {
+		man.logger.Debug("removing tool from server ", "upstream mcp server", man.MCP.ID(), "tool", tool.Tool.Name)
 		toolsToRemove = append(toolsToRemove, tool.Tool.Name)
 	}
-	man.serverTools = nil
-	man.tools = nil
+	man.serverTools = []server.ServerTool{}
+	man.tools = []mcp.Tool{}
 	man.gatewayServer.DeleteTools(toolsToRemove...)
 	man.logger.Debug("removed all tools", "upstream mcp server", man.MCP.ID(), "count", len(toolsToRemove))
 }

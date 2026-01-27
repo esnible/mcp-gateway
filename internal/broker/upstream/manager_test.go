@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"sync"
 	"testing"
 
 	"github.com/Kuadrant/mcp-gateway/internal/config"
 	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/mark3labs/mcp-go/server"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -194,6 +196,159 @@ func TestDiffTools(t *testing.T) {
 				for _, expectedName := range tt.removedNames {
 					assert.Contains(t, removed, expectedName)
 				}
+			}
+		})
+	}
+}
+
+// MockGatewayServer implements ToolsAdderDeleter for testing
+type MockGatewayServer struct {
+	tools map[string]*server.ServerTool
+	mu    sync.Mutex
+}
+
+func NewMockGatewayServer() *MockGatewayServer {
+	return &MockGatewayServer{
+		tools: make(map[string]*server.ServerTool),
+	}
+}
+
+func (m *MockGatewayServer) AddTools(tools ...server.ServerTool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for i := range tools {
+		m.tools[tools[i].Tool.Name] = &tools[i]
+	}
+}
+
+func (m *MockGatewayServer) DeleteTools(names ...string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for _, name := range names {
+		delete(m.tools, name)
+	}
+}
+
+func (m *MockGatewayServer) ListTools() map[string]*server.ServerTool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	result := make(map[string]*server.ServerTool, len(m.tools))
+	for k, v := range m.tools {
+		result[k] = v
+	}
+	return result
+}
+
+func TestServerToolsManagement(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+
+	tests := []struct {
+		name                 string
+		prefix               string
+		initialTools         []mcp.Tool // tools returned by first ListTools call to backend MCP
+		updatedTools         []mcp.Tool // tools returned by second ListTools call to backend MCP
+		expectedServerTools  []string   // expected tool names in serverTools after update from backend MCP
+		expectedGatewayTools []string   // expected tool names in gateway after update from backend MCP
+	}{
+		{
+			name:                 "add tools to empty",
+			prefix:               "test_",
+			initialTools:         []mcp.Tool{},
+			updatedTools:         []mcp.Tool{{Name: "tool1"}, {Name: "tool2"}},
+			expectedServerTools:  []string{"test_tool1", "test_tool2"},
+			expectedGatewayTools: []string{"test_tool1", "test_tool2"},
+		},
+		{
+			name:                 "remove single tool",
+			prefix:               "test_",
+			initialTools:         []mcp.Tool{{Name: "tool1"}, {Name: "tool2"}, {Name: "tool3"}},
+			updatedTools:         []mcp.Tool{{Name: "tool1"}, {Name: "tool3"}},
+			expectedServerTools:  []string{"test_tool1", "test_tool3"},
+			expectedGatewayTools: []string{"test_tool1", "test_tool3"},
+		},
+		{
+			name:                 "remove multiple tools",
+			prefix:               "test_",
+			initialTools:         []mcp.Tool{{Name: "tool1"}, {Name: "tool2"}, {Name: "tool3"}},
+			updatedTools:         []mcp.Tool{{Name: "tool1"}},
+			expectedServerTools:  []string{"test_tool1"},
+			expectedGatewayTools: []string{"test_tool1"},
+		},
+		{
+			name:                 "add and remove tools simultaneously",
+			prefix:               "test_",
+			initialTools:         []mcp.Tool{{Name: "tool1"}, {Name: "tool2"}},
+			updatedTools:         []mcp.Tool{{Name: "tool1"}, {Name: "tool3"}, {Name: "tool4"}},
+			expectedServerTools:  []string{"test_tool1", "test_tool3", "test_tool4"},
+			expectedGatewayTools: []string{"test_tool1", "test_tool3", "test_tool4"},
+		},
+		{
+			name:                 "no changes keeps existing tools",
+			prefix:               "test_",
+			initialTools:         []mcp.Tool{{Name: "tool1"}, {Name: "tool2"}},
+			updatedTools:         []mcp.Tool{{Name: "tool1"}, {Name: "tool2"}},
+			expectedServerTools:  []string{"test_tool1", "test_tool2"},
+			expectedGatewayTools: []string{"test_tool1", "test_tool2"},
+		},
+		{
+			name:                 "remove all tools",
+			prefix:               "test_",
+			initialTools:         []mcp.Tool{{Name: "tool1"}, {Name: "tool2"}},
+			updatedTools:         []mcp.Tool{},
+			expectedServerTools:  []string{},
+			expectedGatewayTools: []string{},
+		},
+		{
+			name:                 "works without prefix",
+			prefix:               "",
+			initialTools:         []mcp.Tool{{Name: "tool1"}},
+			updatedTools:         []mcp.Tool{{Name: "tool1"}, {Name: "tool2"}},
+			expectedServerTools:  []string{"tool1", "tool2"},
+			expectedGatewayTools: []string{"tool1", "tool2"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			mockMCP := newMockMCP("test-server", tt.prefix)
+			mockGateway := NewMockGatewayServer()
+			manager := NewUpstreamMCPManager(mockMCP, mockGateway, logger, 0)
+
+			// First manage call - establish initial tools
+			mockMCP.tools = tt.initialTools
+			manager.manage(ctx)
+
+			// Second manage call - apply updates
+			mockMCP.tools = tt.updatedTools
+			manager.manage(ctx)
+
+			// Verify serverTools
+			manager.toolsLock.RLock()
+			serverToolNames := make([]string, len(manager.serverTools))
+			for i, st := range manager.serverTools {
+				serverToolNames[i] = st.Tool.Name
+			}
+			manager.toolsLock.RUnlock()
+
+			assert.ElementsMatch(t, tt.expectedServerTools, serverToolNames,
+				"serverTools mismatch")
+
+			// Verify gateway tools
+			gatewayTools := mockGateway.ListTools()
+			gatewayToolNames := make([]string, 0, len(gatewayTools))
+			for name := range gatewayTools {
+				gatewayToolNames = append(gatewayToolNames, name)
+			}
+
+			assert.ElementsMatch(t, tt.expectedGatewayTools, gatewayToolNames,
+				"gateway tools mismatch")
+
+			// Verify no duplicates in serverTools
+			seen := make(map[string]bool)
+			for _, name := range serverToolNames {
+				assert.False(t, seen[name], "duplicate tool found: %s", name)
+				seen[name] = true
 			}
 		})
 	}

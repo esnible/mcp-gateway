@@ -31,6 +31,10 @@ GATEWAY_API_VERSION ?= v1.4.1
 
 # The KIND cluster name must match ./build/kind.mk
 KIND_CLUSTER_NAME ?= mcp-gateway
+MCP_GATEWAY_NAMESPACE ?= mcp-system
+MCP_GATEWAY_SUBDOMAIN ?= mcp
+MCP_GATEWAY_HOST ?= $(MCP_GATEWAY_SUBDOMAIN).127-0-0-1.sslip.io
+MCP_GATEWAY_NAME ?= mcp-gateway
 
 .PHONY: help
 help: ## Display this help
@@ -129,19 +133,33 @@ install-crd: ## Install MCPServerRegistration and MCPVirtualServer CRDs
 	kubectl apply -f config/crd/mcp.kagenti.com_mcpgatewayextensions.yaml
 
 # Deploy mcp-gateway components
-deploy: install-crd ## Deploy broker/router and controller to mcp-system namespace
-	@kubectl create namespace mcp-system --dry-run=client -o yaml | kubectl apply -f -
-	kubectl apply -k config/mcp-gateway/overlays/mcp-system/
+deploy: install-crd deploy-namespaces  deploy-controller deploy-broker ## Deploy broker/router and controller to mcp-system namespace
 
-# Deploy both mcp-system and mcp-second-instance
-deploy-multi: install-crd ## Deploy mcp-gateway to both mcp-system and mcp-second-instance namespaces
-	kubectl apply -k config/mcp-gateway/overlays/mcp-system/
-	kubectl apply -k config/mcp-gateway/overlays/mcp-second-instance/
 
 # Deploy only the broker/router
 deploy-broker: install-crd ## Deploy only the broker/router (without controller)
 	kubectl apply -k config/mcp-gateway/overlays/mcp-system/
 	kubectl patch deployment mcp-broker-router -n mcp-system --patch-file config/mcp-gateway/overlays/mcp-system/poll-interval-patch.yaml
+
+# Deploy a new gateway httproute and broker instance configured to work with the new gateway
+deploy-gateway-instance-helm: install-crd ## Deploy only the broker/router (without controller)
+
+	$(KUBECTL) create ns $(MCP_GATEWAY_NAMESPACE) --dry-run=client -o yaml | kubectl apply -f -
+	$(HELM) install mcp-gateway ./charts/mcp-gateway \
+  --namespace $(MCP_GATEWAY_NAMESPACE) \
+  --set gateway.create=true \
+  --set gateway.name=$(MCP_GATEWAY_NAME) \
+  --set gateway.namespace=gateway-system \
+  --set envoyFilter.create=true \
+  --set controller.enabled=false \
+  --set envoyFilter.namespace=istio-system \
+  --set envoyFilter.name=$(MCP_GATEWAY_NAMESPACE) \
+  --set broker.checkInterval=10\
+  --set gateway.publicHost=$(MCP_GATEWAY_HOST) \
+  --set httpRoute.create=true \
+  --set gateway.nodePort.create=true \
+  --set mcpGatewayExtension.gatewayRef.name=$(MCP_GATEWAY_NAME) \
+  --set mcpGatewayExtension.gatewayRef.namespace=gateway-system
 
 .PHONY: configure-redis
 configure-redis:  ## patch deployment with redis connection
@@ -456,6 +474,19 @@ local-env-setup: ## Setup complete local demo environment with Kind, Istio, MCP 
 	"$(MAKE)" add-jwt-key	
 	"$(MAKE)" deploy-test-servers
 	"$(MAKE)" deploy-example
+
+.PHONY: local-bare-setup
+local-bare-setup: ## Setup complete local demo environment with Kind, Istio, MCP Gateway, and test servers
+	@echo "========================================="
+	@echo "Starting MCP Gateway Environment Setup"
+	@echo "========================================="
+	"$(MAKE)" tools
+	"$(MAKE)" kind-create-cluster
+	"$(MAKE)" build-and-load-image
+	"$(MAKE)" gateway-api-install
+	"$(MAKE)" istio-install
+	"$(MAKE)" metallb-install
+	"$(MAKE)" deploy-namespaces
 
 .PHONY: local-env-teardown
 local-env-teardown: ## Tear down the local Kind cluster

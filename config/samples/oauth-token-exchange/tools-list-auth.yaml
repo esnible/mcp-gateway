@@ -17,10 +17,11 @@ spec:
         jwt:
           issuerUrl: https://keycloak.127-0-0-1.sslip.io:8002/realms/mcp
     authorization:
-      'allow-tool-list':
+      'allow-mcp-method':
         patternMatching:
           patterns:
-            - predicate: request.headers['x-mcp-method'] in ["tools/list","initialize","notifications/initialized"] # check method header
+          - predicate: |
+              !request.headers.exists(h, h == 'x-mcp-method') || (request.headers['x-mcp-method'] in ["tools/list","initialize","notifications/initialized"])
       'authorized-tools':
         opa:
           rego: |

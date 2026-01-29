@@ -80,7 +80,7 @@ This will start MCP Inspector and automatically open it with the correct URL for
 After running the Quick start above, configure OAuth authentication with a single command:
 
 ```bash
-make oauth-token-exchange-example-setup
+make auth-example-setup
 ```
 
 This will:

@@ -1,10 +1,17 @@
 ##@ Auth Examples
 
-.PHONY: oauth-token-exchange-example-setup
-oauth-token-exchange-example-setup: cert-manager-install kuadrant-install keycloak-install ## Setup auth example of enabling OAuth2 authentication using Kuadrant, with Vault access and OAuth2 Token Exchange automatically handled for the tools/call request – permissions stored in the Keycloak server (requires: make local-env-setup)
+.PHONY: auth-example-setup
+auth-example-setup: cert-manager-install kuadrant-install keycloak-install ## Setup auth example of OAuth2 authentication using Kuadrant, tool list filtering based on RBAC permissions configured in Keycloak, OAuth2 Token Exchange, and integration with Vault (requires: make local-env-setup)
 	@echo "========================================="
 	@echo "Setting up OAuth Example"
 	@echo "========================================="
+	@echo ""
+	@echo "This setup activates configuration in the MCP Gateway to test the following use cases:"
+	@echo "  - OAuth2 authentication using Keycloak as Identity Provider"
+	@echo "  - Tool list filtering based on RBAC permissions configured in Keycloak"
+	@echo "  - OAuth2 Token Exchange to obtain access tokens for backend services"
+	@echo "  - Integration with HashiCorp Vault (alternative to OAuth2 Token Exchange)"
+	@echo ""
 	@echo "Prerequisites: make local-env-setup should be completed"
 	@echo ""
 	@echo "Step 1/5: Configuring OAuth environment variables..."

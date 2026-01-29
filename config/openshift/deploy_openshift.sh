@@ -44,6 +44,7 @@ oc apply -k "$SCRIPT_BASE_DIR/kustomize/connectivity-link/instance/base"
 
 # Install MCP Gateway using Helm
 echo "Installing MCP Gateway using Helm..."
+kubectl create ns $GATEWAY_NAMESPACE
 helm upgrade -i mcp-gateway -n $MCP_GATEWAY_NAMESPACE --create-namespace oci://ghcr.io/kuadrant/charts/mcp-gateway --version $MCP_GATEWAY_HELM_VERSION \
   --set gateway.publicHost="$MCP_GATEWAY_HOST"
 

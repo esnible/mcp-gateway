@@ -188,7 +188,7 @@ The accessible Kubernetes API servers accept same-domain OIDC access tokens, whi
 ### ❶ Enable auth for `tool/list` and `tool/call` requests in the MCP Gateway
 
 ```sh
-make oauth-token-exchange-example-setup
+make auth-example-setup
 ```
 
 ### ❷ Create an AuthPolicy for the Kubernetes MCP server route

@@ -107,7 +107,7 @@ EOF
 - **CEL Breakdown**:
   - `request.headers['x-mcp-toolname']`: The name of the requested MCP tool (stripped from prefix)
   - `request.headers['x-mcp-servername']`: The namespaced name of the MCP server matching the MCPServerRegistration resource
-  - `auth.identity.resource_access`: The JWT claim containing all roles reperesenting each allowed tool the user can access, grouped by MCP server
+  - `auth.identity.resource_access`: The JWT claim containing all roles representing each allowed tool the user can access, grouped by MCP server
 - **Response Handling**: Custom 401 and 403 responses for unauthenticated and unauthorized access attempts
 
 ## Step 3: Test Authorization

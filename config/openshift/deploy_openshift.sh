@@ -49,6 +49,7 @@ helm upgrade -i mcp-gateway -n $MCP_GATEWAY_NAMESPACE --create-namespace oci://g
 
 # Configure MCP Gateway Ingress using Helm
 echo "Configuring MCP Gateway Ingress using Helm..."
+kubectl create ns $GATEWAY_NAMESPACE
 helm upgrade -i mcp-gateway-ingress -n $GATEWAY_NAMESPACE --create-namespace "$SCRIPT_BASE_DIR/charts/mcp-gateway-ingress" \
   --set mcpGateway.host="$MCP_GATEWAY_HOST" \
   --set 'extraGatewayListeners[0].name=mcp-local' \

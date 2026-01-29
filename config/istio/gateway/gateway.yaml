@@ -66,28 +66,3 @@ spec:
       allowedRoutes:
         namespaces:
           from: All
----
-apiVersion: gateway.networking.k8s.io/v1
-kind: Gateway
-metadata:
-  name: team-alpha-gateway
-  namespace: gateway-system
-  labels:
-    gateway.io/name: team-alpha-gateway
-spec:
-  gatewayClassName: istio
-  listeners:
-  - allowedRoutes:
-      namespaces:
-        from: All
-    hostname: alpha.127-0-0-1.sslip.io
-    name: mcp
-    port: 8081
-    protocol: HTTP
-  - allowedRoutes:
-      namespaces:
-        from: All
-    hostname: '*.alpha.mcp.local'
-    name: mcps
-    port: 8081
-    protocol: HTTP

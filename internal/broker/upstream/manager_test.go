@@ -429,7 +429,7 @@ func TestMCPManager_manage_ConnectError(t *testing.T) {
 	gateway := newMockToolsAdderDeleter()
 	manager := NewUpstreamMCPManager(mock, gateway, logger, 0)
 
-	manager.manage(context.Background())
+	manager.manage(context.Background(), eventTypeTimer)
 
 	status := manager.GetStatus()
 	assert.False(t, status.Ready)
@@ -443,7 +443,7 @@ func TestMCPManager_manage_PingError(t *testing.T) {
 	gateway := newMockToolsAdderDeleter()
 	manager := NewUpstreamMCPManager(mock, gateway, logger, 0)
 
-	manager.manage(context.Background())
+	manager.manage(context.Background(), eventTypeTimer)
 
 	status := manager.GetStatus()
 	assert.False(t, status.Ready)
@@ -458,7 +458,7 @@ func TestMCPManager_manage_ListToolsError(t *testing.T) {
 	gateway := newMockToolsAdderDeleter()
 	manager := NewUpstreamMCPManager(mock, gateway, logger, 0)
 
-	manager.manage(context.Background())
+	manager.manage(context.Background(), eventTypeTimer)
 
 	status := manager.GetStatus()
 	assert.False(t, status.Ready)
@@ -476,7 +476,7 @@ func TestMCPManager_manage_Success(t *testing.T) {
 	gateway := newMockToolsAdderDeleter()
 	manager := NewUpstreamMCPManager(mock, gateway, logger, 0)
 
-	manager.manage(context.Background())
+	manager.manage(context.Background(), eventTypeTimer)
 
 	status := manager.GetStatus()
 	assert.True(t, status.Ready)
@@ -620,6 +620,176 @@ func (m *MockGatewayServer) ListTools() map[string]*server.ServerTool {
 	return result
 }
 
+func TestMCPManager_shouldFetchTools(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+
+	tests := []struct {
+		name                    string
+		supportsToolsListChange bool
+		hasExistingTools        bool
+		eventType               eventType
+		expectedShouldFetch     bool
+	}{
+		{
+			name:                    "no tools list change support always fetch on timer",
+			supportsToolsListChange: false,
+			hasExistingTools:        true,
+			eventType:               eventTypeTimer,
+			expectedShouldFetch:     true,
+		},
+		{
+			name:                    "no tools list change support always fetch on notification",
+			supportsToolsListChange: false,
+			hasExistingTools:        true,
+			eventType:               eventTypeNotification,
+			expectedShouldFetch:     true,
+		},
+		{
+			name:                    "with tools list change support fetch on notification",
+			supportsToolsListChange: true,
+			hasExistingTools:        true,
+			eventType:               eventTypeNotification,
+			expectedShouldFetch:     true,
+		},
+		{
+			name:                    "with tools list change support skip fetch on timer when tools exist",
+			supportsToolsListChange: true,
+			hasExistingTools:        true,
+			eventType:               eventTypeTimer,
+			expectedShouldFetch:     false,
+		},
+		{
+			name:                    "with tools list change support fetch on timer when no tools",
+			supportsToolsListChange: true,
+			hasExistingTools:        false,
+			eventType:               eventTypeTimer,
+			expectedShouldFetch:     true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mock := newMockMCP("test-server", "test_")
+			mock.hasToolsCap = tt.supportsToolsListChange
+			gateway := newMockToolsAdderDeleter()
+			manager := NewUpstreamMCPManager(mock, gateway, logger, 0)
+
+			if tt.hasExistingTools {
+				// set serverTools directly since shouldFetchTools checks this field
+				manager.serverTools = []server.ServerTool{{Tool: mcp.Tool{Name: "existing_tool"}}}
+			}
+
+			result := manager.shouldFetchTools(tt.eventType)
+			assert.Equal(t, tt.expectedShouldFetch, result)
+		})
+	}
+}
+
+func TestMCPManager_manage_SkipsFetchOnTimerWhenToolsListChangeSupported(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
+	mock := newMockMCP("test-server", "test_")
+	mock.tools = []mcp.Tool{{Name: "tool1"}}
+	mock.hasToolsCap = true // supports tools list change notifications
+	gateway := newMockToolsAdderDeleter()
+	manager := NewUpstreamMCPManager(mock, gateway, logger, 0)
+
+	// First call with notification - should fetch and add tools
+	manager.manage(context.Background(), eventTypeNotification)
+	assert.Equal(t, 1, gateway.addCalls, "should add tools on notification")
+	assert.Len(t, gateway.tools, 1)
+
+	// Update mock tools - simulating a change on the server
+	mock.tools = []mcp.Tool{{Name: "tool1"}, {Name: "tool2"}}
+
+	// Timer event - should skip fetching since we support notifications and have tools
+	manager.manage(context.Background(), eventTypeTimer)
+	assert.Equal(t, 1, gateway.addCalls, "should not fetch tools on timer when notifications supported")
+	assert.Len(t, gateway.tools, 1, "tools should remain unchanged")
+
+	// Notification event - should fetch and update tools
+	manager.manage(context.Background(), eventTypeNotification)
+	assert.Equal(t, 2, gateway.addCalls, "should fetch tools on notification")
+	assert.Len(t, gateway.tools, 2, "tools should be updated")
+}
+
+func TestMCPManager_manage_OnlyCallsAddDeleteWhenNeeded(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
+
+	tests := []struct {
+		name             string
+		initialTools     []mcp.Tool
+		updatedTools     []mcp.Tool
+		expectedAddCalls int
+		expectedDelCalls int
+	}{
+		{
+			name:             "no changes - neither AddTools nor DeleteTools called",
+			initialTools:     []mcp.Tool{{Name: "tool1"}, {Name: "tool2"}},
+			updatedTools:     []mcp.Tool{{Name: "tool1"}, {Name: "tool2"}},
+			expectedAddCalls: 1, // only initial add
+			expectedDelCalls: 0,
+		},
+		{
+			name:             "only adding tools - only AddTools called",
+			initialTools:     []mcp.Tool{{Name: "tool1"}},
+			updatedTools:     []mcp.Tool{{Name: "tool1"}, {Name: "tool2"}},
+			expectedAddCalls: 2, // initial + update
+			expectedDelCalls: 0,
+		},
+		{
+			name:             "only removing tools - only DeleteTools called",
+			initialTools:     []mcp.Tool{{Name: "tool1"}, {Name: "tool2"}},
+			updatedTools:     []mcp.Tool{{Name: "tool1"}},
+			expectedAddCalls: 1, // only initial
+			expectedDelCalls: 1,
+		},
+		{
+			name:             "adding and removing - both called",
+			initialTools:     []mcp.Tool{{Name: "tool1"}, {Name: "tool2"}},
+			updatedTools:     []mcp.Tool{{Name: "tool1"}, {Name: "tool3"}},
+			expectedAddCalls: 2, // initial + update
+			expectedDelCalls: 1,
+		},
+		{
+			name:             "empty to tools - only AddTools called",
+			initialTools:     []mcp.Tool{},
+			updatedTools:     []mcp.Tool{{Name: "tool1"}},
+			expectedAddCalls: 1, // only update (initial has nothing to add)
+			expectedDelCalls: 0,
+		},
+		{
+			name:             "tools to empty - only DeleteTools called",
+			initialTools:     []mcp.Tool{{Name: "tool1"}},
+			updatedTools:     []mcp.Tool{},
+			expectedAddCalls: 1, // only initial
+			expectedDelCalls: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			mock := newMockMCP("test-server", "test_")
+			mock.hasToolsCap = false // ensure we fetch tools on every manage call
+			gateway := newMockToolsAdderDeleter()
+			manager := NewUpstreamMCPManager(mock, gateway, logger, 0)
+
+			// first manage call - establish initial tools
+			mock.tools = tt.initialTools
+			manager.manage(ctx, eventTypeTimer)
+
+			// second manage call - apply updates
+			mock.tools = tt.updatedTools
+			manager.manage(ctx, eventTypeTimer)
+
+			assert.Equal(t, tt.expectedAddCalls, gateway.addCalls,
+				"unexpected number of AddTools calls")
+			assert.Equal(t, tt.expectedDelCalls, gateway.delCalls,
+				"unexpected number of DeleteTools calls")
+		})
+	}
+}
+
 func TestServerToolsManagement(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
@@ -693,16 +863,17 @@ func TestServerToolsManagement(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
 			mockMCP := newMockMCP("test-server", tt.prefix)
+			mockMCP.hasToolsCap = false // ensure we fetch tools on every manage call
 			mockGateway := NewMockGatewayServer()
 			manager := NewUpstreamMCPManager(mockMCP, mockGateway, logger, 0)
 
 			// First manage call - establish initial tools
 			mockMCP.tools = tt.initialTools
-			manager.manage(ctx)
+			manager.manage(ctx, eventTypeTimer)
 
 			// Second manage call - apply updates
 			mockMCP.tools = tt.updatedTools
-			manager.manage(ctx)
+			manager.manage(ctx, eventTypeTimer)
 
 			// Verify serverTools
 			manager.toolsLock.RLock()

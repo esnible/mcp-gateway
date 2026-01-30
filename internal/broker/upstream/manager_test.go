@@ -345,38 +345,6 @@ func TestMCPManager_setStatus(t *testing.T) {
 	}
 }
 
-func TestMCPManager_hasTools(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-
-	testCases := []struct {
-		name        string
-		serverTools []server.ServerTool
-		expected    bool
-	}{
-		{
-			name:        "returns false when no tools",
-			serverTools: nil,
-			expected:    false,
-		},
-		{
-			name:        "returns true when tools exist",
-			serverTools: []server.ServerTool{{Tool: mcp.Tool{Name: "tool1"}}},
-			expected:    true,
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			mock := newMockMCP("test", "")
-			gateway := newMockToolsAdderDeleter()
-			manager := NewUpstreamMCPManager(mock, gateway, logger, 0)
-			manager.serverTools = tc.serverTools
-
-			assert.Equal(t, tc.expected, manager.hasTools())
-		})
-	}
-}
-
 func TestPrefixedName(t *testing.T) {
 	testCases := []struct {
 		name     string

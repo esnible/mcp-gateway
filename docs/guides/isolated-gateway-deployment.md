@@ -130,7 +130,7 @@ helm upgrade -i team-a-mcp-gateway ./charts/mcp-gateway \
   --set mcpGatewayExtension.gatewayRef.name=team-a-gateway \
   --set mcpGatewayExtension.gatewayRef.namespace=gateway-system \
   --set envoyFilter.create=true \
-  --set envoyFilter.name=team-a-ext-proc
+  --set envoyFilter.name=team-a-gateway
 ```
 
 The Helm chart creates:
@@ -177,7 +177,7 @@ helm upgrade -i team-b-mcp-gateway ./charts/mcp-gateway \
   --set mcpGatewayExtension.gatewayRef.name=team-b-gateway \
   --set mcpGatewayExtension.gatewayRef.namespace=gateway-system \
   --set envoyFilter.create=true \
-  --set envoyFilter.name=team-b-ext-proc
+  --set envoyFilter.name=team-b-gateway
 ```
 
 ## Step 7: Verify Team B Deployment
@@ -435,6 +435,6 @@ helm install team-a-mcp-gateway ./charts/mcp-gateway \
   --set gateway.publicHost="$TEAM_A_HOST" \
   --set httpRoute.create=true \
   --set envoyFilter.create=true \
-  --set envoyFilter.name=team-a-ext-proc \
+  --set envoyFilter.name=team-a-gateway \
   --set mcpGatewayExtension.create=false
 ```

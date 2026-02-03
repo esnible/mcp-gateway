@@ -14,4 +14,5 @@
     - [External MCP Servers](./external-mcp-server.md)
 - [Authentication](./authentication.md)
 - [Authorization](./authorization.md)
+- [Vault Integration](./vault-integration.md)
 - [Troubleshooting](./troubleshooting.md)

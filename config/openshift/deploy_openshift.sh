@@ -68,7 +68,8 @@ helm upgrade -i mcp-gateway oci://ghcr.io/kuadrant/charts/mcp-gateway \
   --set mcpGatewayExtension.create=true \
   --set mcpGatewayExtension.gatewayRef.name=mcp-gateway \
   --set mcpGatewayExtension.gatewayRef.namespace=$GATEWAY_NAMESPACE \
-  --set envoyFilter.create=true
+  --set envoyFilter.create=true \
+  --set envoyFilter.name=mcp-gateway
 
 # Create OpenShift Route (still using ingress chart for Route only)
 echo "Creating OpenShift Route..."

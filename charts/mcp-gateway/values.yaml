@@ -28,7 +28,7 @@ envoyFilter:
   # Namespace where EnvoyFilter should be created (usually istio-system)
   namespace: istio-system
   # Name of the envoy filter to create
-  name: mcp-ext-proc
+  name: "mcp-gateway"
   ## port the port number to apply the filter to
   port: 8080
 

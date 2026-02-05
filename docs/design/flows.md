@@ -7,7 +7,7 @@ Below are some theorized flows. They are likely to adapt and change as we get de
 
 ## MCP Server Registration
 
-For detailed information on how MCP server registration works, including the MCPManager lifecycle and configuration change handling, see the [server registration design documentation](./server-registration.md).
+For detailed information on how MCP server registration works, including the MCPManager lifecycle and configuration change handling, see the [backend MCP Management doc](./backend-mcp-management.md).
 
 ## Initialize:
 

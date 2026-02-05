@@ -16,8 +16,8 @@ spec:
     spec:
       containers:
       - name: everything-server
-        image: ghcr.io/kagenti/mcp-gateway/test-everything-server:latest
-        imagePullPolicy: IfNotPresent
+        image: ghcr.io/kuadrant/mcp-gateway/test-everything-server:latest
+        imagePullPolicy: Always
         ports:
         - containerPort: 9090
           name: http

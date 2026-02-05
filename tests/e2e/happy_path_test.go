@@ -31,7 +31,7 @@ var _ = Describe("MCP Gateway Registration Happy Path", func() {
 
 	BeforeEach(func() {
 		// we don't use defers for this so if a test fails ensure this server that gets scaled down and up is up and running
-		_ = ScaleDeployment(TestNamespace, scaledMCPTestServer, 1)
+		_ = ScaleDeployment(TestServerNameSpace, scaledMCPTestServer, 1)
 	})
 
 	AfterEach(func() {
@@ -69,7 +69,7 @@ var _ = Describe("MCP Gateway Registration Happy Path", func() {
 
 		By("Verifying HTTPRoute has Programmed condition set")
 		Eventually(func(g Gomega) {
-			err := VerifyHTTPRouteHasProgrammedCondition(ctx, k8sClient, httpRoute1Name, TestNamespace)
+			err := VerifyHTTPRouteHasProgrammedCondition(ctx, k8sClient, httpRoute1Name, TestServerNameSpace)
 			g.Expect(err).NotTo(HaveOccurred())
 		}, TestTimeoutMedium, TestRetryInterval).To(Succeed())
 
@@ -113,7 +113,7 @@ var _ = Describe("MCP Gateway Registration Happy Path", func() {
 
 		By("Verifying HTTPRoute no longer has Programmed condition after MCPServerRegistration deletion")
 		Eventually(func(g Gomega) {
-			err := VerifyHTTPRouteNoProgrammedCondition(ctx, k8sClient, httpRoute1Name, TestNamespace)
+			err := VerifyHTTPRouteNoProgrammedCondition(ctx, k8sClient, httpRoute1Name, TestServerNameSpace)
 			g.Expect(err).NotTo(HaveOccurred())
 		}, TestTimeoutMedium, TestRetryInterval).To(Succeed())
 
@@ -305,7 +305,7 @@ var _ = Describe("MCP Gateway Registration Happy Path", func() {
 
 		By("Creating an MCPVirtualServer with a subset of tools")
 		allowedTool := fmt.Sprintf("%s%s", registeredServer.Spec.ToolPrefix, "hello_world")
-		virtualServer := BuildTestMCPVirtualServer("test-virtualserver", TestNamespace, []string{allowedTool}).Build()
+		virtualServer := BuildTestMCPVirtualServer("test-virtualserver", TestServerNameSpace, []string{allowedTool}).Build()
 		testResources = append(testResources, virtualServer)
 		Expect(k8sClient.Create(ctx, virtualServer)).To(Succeed())
 
@@ -471,7 +471,7 @@ var _ = Describe("MCP Gateway Registration Happy Path", func() {
 	// consider moving to separate suite
 	It("[Full] should gracefully handle an MCP Server becoming unavailable", func() {
 		By("Scaling down the MCP server3 deployment to 0")
-		Expect(ScaleDeployment(TestNamespace, scaledMCPTestServer, 0)).To(Succeed())
+		Expect(ScaleDeployment(TestServerNameSpace, scaledMCPTestServer, 0)).To(Succeed())
 
 		By("Registering an MCPServerRegistration pointing to server3")
 		registration := NewMCPServerResourcesWithDefaults("unavailable-test", k8sClient).
@@ -487,11 +487,11 @@ var _ = Describe("MCP Gateway Registration Happy Path", func() {
 		}, TestTimeoutLong, TestRetryInterval).To(Succeed())
 
 		By("Scaling up the MCP server3 deployment to 1")
-		Expect(ScaleDeployment(TestNamespace, scaledMCPTestServer, 1)).To(Succeed())
+		Expect(ScaleDeployment(TestServerNameSpace, scaledMCPTestServer, 1)).To(Succeed())
 
 		By("Waiting for deployment to be ready")
 		Eventually(func(g Gomega) {
-			g.Expect(WaitForDeploymentReady(TestNamespace, scaledMCPTestServer, 1)).To(Succeed())
+			g.Expect(WaitForDeploymentReady(TestServerNameSpace, scaledMCPTestServer, 1)).To(Succeed())
 		}, TestTimeoutLong, TestRetryInterval).To(Succeed())
 
 		By("Ensuring the gateway has registered the server")
@@ -519,7 +519,7 @@ var _ = Describe("MCP Gateway Registration Happy Path", func() {
 		defer notifyClient.Close()
 
 		By("Scaling back down the MCP server3 deployment to 0")
-		Expect(ScaleDeployment(TestNamespace, scaledMCPTestServer, 0)).To(Succeed())
+		Expect(ScaleDeployment(TestServerNameSpace, scaledMCPTestServer, 0)).To(Succeed())
 
 		By("Verifying tools are removed from tools/list within timeout")
 		Eventually(func(g Gomega) {
@@ -541,11 +541,11 @@ var _ = Describe("MCP Gateway Registration Happy Path", func() {
 		})
 
 		By("Scaling the MCP server deployment back up")
-		Expect(ScaleDeployment(TestNamespace, scaledMCPTestServer, 1)).To(Succeed())
+		Expect(ScaleDeployment(TestServerNameSpace, scaledMCPTestServer, 1)).To(Succeed())
 
 		By("Waiting for deployment to be ready")
 		Eventually(func(g Gomega) {
-			g.Expect(WaitForDeploymentReady(TestNamespace, scaledMCPTestServer, 1)).To(Succeed())
+			g.Expect(WaitForDeploymentReady(TestServerNameSpace, scaledMCPTestServer, 1)).To(Succeed())
 		}, TestTimeoutLong, TestRetryInterval).To(Succeed())
 
 		By("Verifying tools are restored in tools/list")
@@ -853,7 +853,7 @@ var _ = Describe("MCP Gateway Registration Happy Path", func() {
 		// After adding a ReferenceGrant, this MCPGatewayExtension will get a conflict status
 		// because only one MCPGatewayExtension can own a gateway (the oldest one wins).
 		By("Creating an MCPGatewayExtension in mcp-test namespace targeting Gateway in gateway-system without ReferenceGrant")
-		mcpExt := NewMCPGatewayExtensionBuilder("test-cross-ns", TestNamespace).
+		mcpExt := NewMCPGatewayExtensionBuilder("test-cross-ns", TestServerNameSpace).
 			WithTarget(GatewayName, GatewayNamespace).
 			Build()
 		testResources = append(testResources, mcpExt)
@@ -867,7 +867,7 @@ var _ = Describe("MCP Gateway Registration Happy Path", func() {
 
 		By("Creating a ReferenceGrant in gateway-system to allow cross-namespace reference")
 		refGrant := NewReferenceGrantBuilder("allow-mcp-test", GatewayNamespace).
-			FromNamespace(TestNamespace).
+			FromNamespace(TestServerNameSpace).
 			Build()
 		testResources = append(testResources, refGrant)
 		Expect(k8sClient.Create(ctx, refGrant)).To(Succeed())
@@ -900,7 +900,7 @@ var _ = Describe("MCP Gateway Registration Happy Path", func() {
 		// We temporarily delete the existing mcp-system MCPGatewayExtension, then restore it.
 		By("Getting the existing MCPGatewayExtension in mcp-system")
 		existingExt := &mcpv1alpha1.MCPGatewayExtension{}
-		err := k8sClient.Get(ctx, client.ObjectKey{Name: "mcp-gateway-extension", Namespace: SystemNamespace}, existingExt)
+		err := k8sClient.Get(ctx, client.ObjectKey{Name: MCPExtensionName, Namespace: SystemNamespace}, existingExt)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Creating an MCPServerRegistration to verify tools exist")
@@ -939,7 +939,7 @@ var _ = Describe("MCP Gateway Registration Happy Path", func() {
 		}, TestTimeoutLong, TestRetryInterval).To(Succeed())
 
 		By("Recreating the MCPGatewayExtension to restore the system")
-		newExt := NewMCPGatewayExtensionBuilder("mcp-gateway-extension", SystemNamespace).
+		newExt := NewMCPGatewayExtensionBuilder(MCPExtensionName, SystemNamespace).
 			WithTarget(GatewayName, GatewayNamespace).
 			Build()
 		Expect(k8sClient.Create(ctx, newExt)).To(Succeed())

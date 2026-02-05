@@ -101,10 +101,10 @@ var _ = BeforeSuite(func() {
 
 	By("cleaning up all existing reference grants")
 	err = k8sClient.DeleteAllOf(ctx, &gatewayv1beta1.ReferenceGrant{}, client.InNamespace(GatewayNamespace))
-	Expect(err).ToNot(HaveOccurred(), "all existing HTTPRoutes should be removed before the e2e test suite")
+	Expect(err).ToNot(HaveOccurred(), "all existing ReferenceGrants should be removed before the e2e test suite")
 	By("cleaning up all existing mcpgatewayextensions")
 	err = k8sClient.DeleteAllOf(ctx, &v1alpha1.MCPGatewayExtension{}, client.InNamespace(SystemNamespace))
-	Expect(err).ToNot(HaveOccurred(), "all existing HTTPRoutes should be removed before the e2e test suite")
+	Expect(err).ToNot(HaveOccurred(), "all existing MCPGatewayExtensions should be removed before the e2e test suite")
 
 	By("ensuring ReferenceGrant exists in gateway-system")
 	refGrant := NewReferenceGrantBuilder(ReferenceGrantName, GatewayNamespace).

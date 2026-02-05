@@ -3,8 +3,10 @@ package controller
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
+	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -15,7 +17,6 @@ import (
 
 	mcpv1alpha1 "github.com/Kuadrant/mcp-gateway/api/v1alpha1"
 	"github.com/Kuadrant/mcp-gateway/internal/config"
-	"github.com/go-logr/logr"
 )
 
 // VirtualServerConfigReaderWriter interface to write virtual server config
@@ -28,7 +29,7 @@ type MCPVirtualServerReconciler struct {
 	client.Client
 	DirectAPIReader    client.Reader
 	Scheme             *runtime.Scheme
-	log                logr.Logger
+	log                *slog.Logger
 	ConfigReaderWriter VirtualServerConfigReaderWriter
 }
 
@@ -119,7 +120,7 @@ func (r *MCPVirtualServerReconciler) generateVirtualServerConfig(ctx context.Con
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *MCPVirtualServerReconciler) SetupWithManager(_ context.Context, mgr ctrl.Manager) error {
-	r.log = mgr.GetLogger()
+	r.log = slog.New(logr.ToSlogHandler(mgr.GetLogger()))
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&mcpv1alpha1.MCPVirtualServer{}).

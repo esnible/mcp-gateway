@@ -2,9 +2,9 @@ package config
 
 import (
 	"context"
+	"log/slog"
 	"testing"
 
-	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -20,11 +20,11 @@ func newTestSecretReaderWriter(t *testing.T) *SecretReaderWriter {
 	fakeClient := fake.NewClientBuilder().
 		WithScheme(scheme).
 		Build()
-	logger := logr.Discard()
+	logger := slog.New(slog.DiscardHandler)
 	return &SecretReaderWriter{
 		Client: fakeClient,
 		Scheme: scheme,
-		Logger: &logger,
+		Logger: logger,
 	}
 }
 

@@ -19,11 +19,14 @@ This package contains the main of the mcp controller
 package main
 
 import (
+	"log/slog"
+	"os"
+
+	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
@@ -40,8 +43,9 @@ func init() {
 }
 
 func main() {
-	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
-	ctrl.Log.Info("Controller starting (health: :8081, metrics: :8082)...")
+	slogger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	ctrl.SetLogger(logr.FromSlogHandler(slogger.Handler()))
+	slogger.Info("Controller starting (health: :8081, metrics: :8082)...")
 	ctx := ctrl.SetupSignalHandler()
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme.Scheme,
@@ -66,7 +70,7 @@ func main() {
 	configReaderWriter := config.SecretReaderWriter{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-		Logger: &ctrl.Log,
+		Logger: slogger,
 	}
 
 	mcpExtFinderValidator := &controller.MCPGatewayExtensionValidator{

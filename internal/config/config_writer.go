@@ -29,8 +29,8 @@ package config
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
-	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -47,7 +47,7 @@ import (
 type SecretReaderWriter struct {
 	Client client.Client
 	Scheme *runtime.Scheme
-	Logger *logr.Logger
+	Logger *slog.Logger
 }
 
 // DefaultNamespaceName is the default location for the MCP Gateway config secret.
@@ -156,7 +156,7 @@ func (srw *SecretReaderWriter) readOrCreateConfigSecret(ctx context.Context, nam
 // server is appended to the list. This uses a read-modify-write pattern with
 // automatic retry on conflict errors.
 func (srw *SecretReaderWriter) UpsertMCPServer(ctx context.Context, server MCPServer, namespaceName types.NamespacedName) error {
-	srw.Logger.Info("SecretReaderWriter UpsertMCPServer ", "secret", namespaceName, "name", server.Name)
+	srw.Logger.Info("SecretReaderWriter UpsertMCPServer", "secret", namespaceName, "name", server.Name)
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		existingConfig, backingSecret, err := srw.readOrCreateConfigSecret(ctx, namespaceName)
 		if err != nil {
@@ -238,8 +238,8 @@ func (srw *SecretReaderWriter) RemoveMCPServer(ctx context.Context, serverName s
 		})
 		if err != nil {
 			lastErr = err
-			srw.Logger.Error(err, "failed to remove server from config secret",
-				"serverName", serverName, "namespace", secret.Namespace)
+			srw.Logger.Error("failed to remove server from config secret",
+				"error", err, "serverName", serverName, "namespace", secret.Namespace)
 		}
 	}
 
@@ -249,7 +249,7 @@ func (srw *SecretReaderWriter) RemoveMCPServer(ctx context.Context, serverName s
 // DeleteConfig deletes the entire config secret. If the secret doesn't exist,
 // this is a no-op and returns nil.
 func (srw *SecretReaderWriter) DeleteConfig(ctx context.Context, namespaceName types.NamespacedName) error {
-	srw.Logger.V(1).Info("deleting config ", "namespacename", namespaceName)
+	srw.Logger.Debug("deleting config", "namespacename", namespaceName)
 	configSecret := &corev1.Secret{}
 	err := srw.Client.Get(ctx, namespaceName, configSecret)
 	if err != nil {

@@ -16,8 +16,8 @@ spec:
     spec:
       containers:
       - name: mcp-test-server2
-        image: ghcr.io/kagenti/mcp-gateway/test-server2:latest
-        imagePullPolicy: IfNotPresent
+        image: ghcr.io/kuadrant/mcp-gateway/test-server2:latest
+        imagePullPolicy: Always
         ports:
         - containerPort: 9090
           name: http

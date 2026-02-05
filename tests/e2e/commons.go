@@ -22,9 +22,13 @@ const (
 
 // Namespace constants
 const (
-	TestNamespace   = "mcp-test"
-	SystemNamespace = "mcp-system"
-	ConfigMapName   = "mcp-gateway-config"
+	SystemNamespace     = "mcp-system"
+	ConfigMapName       = "mcp-gateway-config"
+	GatewayNamespace    = "gateway-system"
+	GatewayName         = "mcp-gateway"
+	MCPExtensionName    = "mcp-gateway"
+	TestServerNameSpace = "mcp-test"
+	ReferenceGrantName  = "allow-mcp-gateway"
 )
 
 // UniqueName generates a unique name with the given prefix

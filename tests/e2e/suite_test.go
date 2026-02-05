@@ -26,15 +26,8 @@ import (
 	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
+	"github.com/Kuadrant/mcp-gateway/api/v1alpha1"
 	mcpv1alpha1 "github.com/Kuadrant/mcp-gateway/api/v1alpha1"
-)
-
-const (
-	// shared fixtures for e2e tests
-	GatewayNamespace   = "gateway-system"
-	GatewayName        = "mcp-gateway"
-	MCPExtensionName   = "mcp-gateway-extension"
-	ReferenceGrantName = "allow-mcp-extensions"
 )
 
 var (
@@ -85,9 +78,9 @@ var _ = BeforeSuite(func() {
 
 	By("Checking test namespace exists")
 	testNs := &corev1.Namespace{}
-	err = k8sClient.Get(ctx, client.ObjectKey{Name: TestNamespace}, testNs)
+	err = k8sClient.Get(ctx, client.ObjectKey{Name: TestServerNameSpace}, testNs)
 	if err != nil {
-		GinkgoWriter.Printf("Warning: test namespace %s does not exist, tests may fail\n", TestNamespace)
+		GinkgoWriter.Printf("Warning: test namespace %s does not exist, tests may fail\n", TestServerNameSpace)
 	}
 
 	By("Checking system namespace exists")
@@ -97,13 +90,20 @@ var _ = BeforeSuite(func() {
 
 	By("cleaning up all existing mcpserverregistrations")
 
-	err = k8sClient.DeleteAllOf(ctx, &mcpv1alpha1.MCPServerRegistration{}, client.InNamespace("mcp-test"), &client.DeleteAllOfOptions{ListOptions: client.ListOptions{
+	err = k8sClient.DeleteAllOf(ctx, &mcpv1alpha1.MCPServerRegistration{}, client.InNamespace(TestServerNameSpace), &client.DeleteAllOfOptions{ListOptions: client.ListOptions{
 		LabelSelector: labels.Everything(),
 	}})
 	Expect(err).ToNot(HaveOccurred(), "all existing MCPSevers should be removed before the e2e test suite")
 
 	By("cleaning up all http routes")
-	err = k8sClient.DeleteAllOf(ctx, &gatewayapiv1.HTTPRoute{}, client.InNamespace("mcp-test"))
+	err = k8sClient.DeleteAllOf(ctx, &gatewayapiv1.HTTPRoute{}, client.InNamespace(TestServerNameSpace))
+	Expect(err).ToNot(HaveOccurred(), "all existing HTTPRoutes should be removed before the e2e test suite")
+
+	By("cleaning up all existing reference grants")
+	err = k8sClient.DeleteAllOf(ctx, &gatewayv1beta1.ReferenceGrant{}, client.InNamespace(GatewayNamespace))
+	Expect(err).ToNot(HaveOccurred(), "all existing HTTPRoutes should be removed before the e2e test suite")
+	By("cleaning up all existing mcpgatewayextensions")
+	err = k8sClient.DeleteAllOf(ctx, &v1alpha1.MCPGatewayExtension{}, client.InNamespace(SystemNamespace))
 	Expect(err).ToNot(HaveOccurred(), "all existing HTTPRoutes should be removed before the e2e test suite")
 
 	By("ensuring ReferenceGrant exists in gateway-system")
@@ -133,6 +133,11 @@ var _ = BeforeSuite(func() {
 	} else {
 		GinkgoWriter.Printf("MCPGatewayExtension %s already exists in %s\n", MCPExtensionName, SystemNamespace)
 	}
+	By("Verifying MCPGatewayExtension becomes ready")
+	Eventually(func(g Gomega) {
+		err := VerifyMCPGatewayExtensionReady(ctx, k8sClient, mcpExt.Name, mcpExt.Namespace)
+		g.Expect(err).NotTo(HaveOccurred())
+	}, TestTimeoutMedium, TestRetryInterval).To(Succeed())
 
 	By("setting up an mcp client for the gateway")
 	mcpGatewayClient, err = NewMCPGatewayClientWithNotifications(ctx, gatewayURL, func(j mcp.JSONRPCNotification) {})

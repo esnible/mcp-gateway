@@ -17,8 +17,8 @@ spec:
     spec:
       containers:
       - name: server
-        image: ghcr.io/kagenti/mcp-gateway/test-oidc-server:latest
-        imagePullPolicy: IfNotPresent
+        image: ghcr.io/kuadrant/mcp-gateway/test-oidc-server:latest
+        imagePullPolicy: Always
         ports:
         - containerPort: 9090
         env:

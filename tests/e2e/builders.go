@@ -44,7 +44,7 @@ func NewTestResources(testName string, k8sClient client.Client) *TestResourcesBu
 	return &TestResourcesBuilder{
 		k8sClient:     k8sClient,
 		testName:      testName,
-		namespace:     TestNamespace,
+		namespace:     TestServerNameSpace,
 		hostname:      "e2e-server2.mcp.local",
 		serviceName:   "mcp-test-server2",
 		port:          9090,
@@ -391,7 +391,7 @@ func BuildCredentialSecret(name, token string) *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: TestNamespace,
+			Namespace: TestServerNameSpace,
 			Labels: map[string]string{
 				"mcp.kagenti.com/credential": "true",
 				"e2e":                        "test",

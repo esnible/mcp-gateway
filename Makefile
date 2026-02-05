@@ -223,14 +223,14 @@ deploy-example: install-crd ## Deploy example MCPServerRegistration resource
 # Build test server Docker images
 build-test-servers: ## Build test server Docker images locally
 	@echo "Building test server images..."
-	cd tests/servers/server1 && $(CONTAINER_ENGINE) build $(CONTAINER_ENGINE_EXTRA_FLAGS) -t ghcr.io/kagenti/mcp-gateway/test-server1:latest .
-	cd tests/servers/server2 && $(CONTAINER_ENGINE) build $(CONTAINER_ENGINE_EXTRA_FLAGS) -t ghcr.io/kagenti/mcp-gateway/test-server2:latest .
-	cd tests/servers/server3 && $(CONTAINER_ENGINE) build $(CONTAINER_ENGINE_EXTRA_FLAGS) -t ghcr.io/kagenti/mcp-gateway/test-server3:latest .
-	cd tests/servers/api-key-server && $(CONTAINER_ENGINE) build $(CONTAINER_ENGINE_EXTRA_FLAGS) -t ghcr.io/kagenti/mcp-gateway/test-api-key-server:latest .
+	cd tests/servers/server1 && $(CONTAINER_ENGINE) build $(CONTAINER_ENGINE_EXTRA_FLAGS) -t ghcr.io/kuadrant/mcp-gateway/test-server1:latest .
+	cd tests/servers/server2 && $(CONTAINER_ENGINE) build $(CONTAINER_ENGINE_EXTRA_FLAGS) -t ghcr.io/kuadrant/mcp-gateway/test-server2:latest .
+	cd tests/servers/server3 && $(CONTAINER_ENGINE) build $(CONTAINER_ENGINE_EXTRA_FLAGS) -t ghcr.io/kuadrant/mcp-gateway/test-server3:latest .
+	cd tests/servers/api-key-server && $(CONTAINER_ENGINE) build $(CONTAINER_ENGINE_EXTRA_FLAGS) -t ghcr.io/kuadrant/mcp-gateway/test-api-key-server:latest .
 	cd tests/servers/broken-server && $(CONTAINER_ENGINE) build $(CONTAINER_ENGINE_EXTRA_FLAGS) -t ghcr.io/kuadrant/mcp-gateway/test-broken-server:latest .
 	cd tests/servers/custom-path-server && $(CONTAINER_ENGINE) build $(CONTAINER_ENGINE_EXTRA_FLAGS) -t ghcr.io/kuadrant/mcp-gateway/test-custom-path-server:latest .
-	cd tests/servers/oidc-server && $(CONTAINER_ENGINE) build $(CONTAINER_ENGINE_EXTRA_FLAGS) -t ghcr.io/kagenti/mcp-gateway/test-oidc-server:latest .
-	cd tests/servers/everything-server && $(CONTAINER_ENGINE) build $(CONTAINER_ENGINE_EXTRA_FLAGS) -t ghcr.io/kagenti/mcp-gateway/test-everything-server:latest .
+	cd tests/servers/oidc-server && $(CONTAINER_ENGINE) build $(CONTAINER_ENGINE_EXTRA_FLAGS) -t ghcr.io/kuadrant/mcp-gateway/test-oidc-server:latest .
+	cd tests/servers/everything-server && $(CONTAINER_ENGINE) build $(CONTAINER_ENGINE_EXTRA_FLAGS) -t ghcr.io/kuadrant/mcp-gateway/test-everything-server:latest .
 	cd tests/servers/custom-response-server && $(CONTAINER_ENGINE) build $(CONTAINER_ENGINE_EXTRA_FLAGS) -t ghcr.io/kuadrant/mcp-gateway/test-custom-response-server:latest .	
 
 # Build conformance server Docker image
@@ -242,14 +242,14 @@ build-conformance-server: ## Build conformance server Docker image locally
 # Load test server images into Kind cluster
 kind-load-test-servers: kind build-test-servers ## Load test server images into Kind cluster
 	@echo "Loading test server images into Kind cluster..."
-	$(call load-image,ghcr.io/kagenti/mcp-gateway/test-server1:latest)
-	$(call load-image,ghcr.io/kagenti/mcp-gateway/test-server2:latest)
-	$(call load-image,ghcr.io/kagenti/mcp-gateway/test-server3:latest)
-	$(call load-image,ghcr.io/kagenti/mcp-gateway/test-api-key-server:latest)
+	$(call load-image,ghcr.io/kuadrant/mcp-gateway/test-server1:latest)
+	$(call load-image,ghcr.io/kuadrant/mcp-gateway/test-server2:latest)
+	$(call load-image,ghcr.io/kuadrant/mcp-gateway/test-server3:latest)
+	$(call load-image,ghcr.io/kuadrant/mcp-gateway/test-api-key-server:latest)
 	$(call load-image,ghcr.io/kuadrant/mcp-gateway/test-broken-server:latest)
 	$(call load-image,ghcr.io/kuadrant/mcp-gateway/test-custom-path-server:latest)
-	$(call load-image,ghcr.io/kagenti/mcp-gateway/test-oidc-server:latest)
-	$(call load-image,ghcr.io/kagenti/mcp-gateway/test-everything-server:latest)
+	$(call load-image,ghcr.io/kuadrant/mcp-gateway/test-oidc-server:latest)
+	$(call load-image,ghcr.io/kuadrant/mcp-gateway/test-everything-server:latest)
 	$(call load-image,ghcr.io/kuadrant/mcp-gateway/test-custom-response-server:latest)
 
 # Load conformance server image into Kind cluster

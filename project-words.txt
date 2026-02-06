@@ -368,3 +368,5 @@ ldflags
 tracetest
 Syncer
 spancheck
+appsv
+intstr

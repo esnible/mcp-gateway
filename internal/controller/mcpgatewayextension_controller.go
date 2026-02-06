@@ -3,7 +3,9 @@ package controller
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
+	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -19,7 +21,6 @@ import (
 
 	mcpv1alpha1 "github.com/Kuadrant/mcp-gateway/api/v1alpha1"
 	"github.com/Kuadrant/mcp-gateway/internal/config"
-	"github.com/go-logr/logr"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
@@ -43,7 +44,7 @@ type MCPGatewayExtensionReconciler struct {
 	client.Client
 	DirectAPIReader       client.Reader
 	Scheme                *runtime.Scheme
-	log                   logr.Logger
+	log                   *slog.Logger
 	ConfigWriterDeleter   ConfigWriterDeleter
 	MCPExtFinderValidator MCPGatewayExtensionFinderValidator
 }
@@ -247,7 +248,7 @@ func (r *MCPGatewayExtensionReconciler) findMCPGatewayExtForGateway(ctx context.
 	mcpGatewayExtList, err := r.listMCPGatewayExtsForGateway(ctx, gateway)
 	if err != nil {
 		// just log as this is adhering to the EnqueueRequestsFromMapFunc signature
-		r.log.Error(err, "failed to list existing mcpgatewayextension for gateway ", "gateway", gateway)
+		r.log.Error("failed to list existing mcpgatewayextension for gateway", "error", err, "gateway", gateway)
 		return requests
 	}
 	for _, ext := range mcpGatewayExtList.Items {
@@ -286,19 +287,19 @@ func (r *MCPGatewayExtensionReconciler) findMCPGatewayExtForReferenceGrant(ctx c
 	if !ok {
 		return requests
 	}
-	r.log.V(1).Info("findMCPGatewayExtForReferenceGrant", "ref grant", ref.Spec.From)
+	r.log.Debug("findMCPGatewayExtForReferenceGrant", "ref grant", ref.Spec.From)
 	if len(ref.Spec.From) == 0 {
 		return requests
 	}
-	r.log.V(1).Info("findMCPGatewayExtForReferenceGrant", "ref grant", refGrantToMCPExtIndexValue(*ref))
+	r.log.Debug("findMCPGatewayExtForReferenceGrant", "ref grant", refGrantToMCPExtIndexValue(*ref))
 	mcpGatewayExtList := &mcpv1alpha1.MCPGatewayExtensionList{}
 	if err := r.List(ctx, mcpGatewayExtList,
 		client.MatchingFields{refGrantIndexKey: refGrantToMCPExtIndexValue(*ref)},
 	); err != nil {
-		r.log.Error(err, "failed to findMCPGatewayExtForGateway")
+		r.log.Error("failed to findMCPGatewayExtForGateway", "error", err)
 		return nil
 	}
-	r.log.V(1).Info("found mcpgatewayextensions by refgrant ", "total", len(mcpGatewayExtList.Items), "referencegrant", ref.Name)
+	r.log.Debug("found mcpgatewayextensions by refgrant", "total", len(mcpGatewayExtList.Items), "referencegrant", ref.Name)
 	for _, ext := range mcpGatewayExtList.Items {
 		requests = append(requests, reconcile.Request{NamespacedName: client.ObjectKeyFromObject(&ext)})
 	}
@@ -307,7 +308,7 @@ func (r *MCPGatewayExtensionReconciler) findMCPGatewayExtForReferenceGrant(ctx c
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *MCPGatewayExtensionReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
-	r.log = mgr.GetLogger()
+	r.log = slog.New(logr.ToSlogHandler(mgr.GetLogger()))
 	if err := setupIndexExtensionToGateway(ctx, mgr.GetFieldIndexer()); err != nil {
 		return fmt.Errorf("failed to setup manager %w", err)
 	}

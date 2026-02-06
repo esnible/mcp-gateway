@@ -19,11 +19,15 @@ This package contains the main of the mcp controller
 package main
 
 import (
+	"flag"
+	"log/slog"
+	"os"
+
+	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
@@ -40,8 +44,33 @@ func init() {
 }
 
 func main() {
-	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
-	ctrl.Log.Info("Controller starting (health: :8081, metrics: :8082)...")
+	var loglevel int
+	var logFormat string
+	flag.IntVar(&loglevel, "log-level", int(slog.LevelInfo), "log level: 0=info, 8=error, -4=debug")
+	flag.StringVar(&logFormat, "log-format", "txt", "log format: txt or json")
+	flag.Parse()
+
+	loggerOpts := &slog.HandlerOptions{}
+	switch loglevel {
+	case 0:
+		loggerOpts.Level = slog.LevelInfo
+	case 8:
+		loggerOpts.Level = slog.LevelError
+	case -4:
+		loggerOpts.Level = slog.LevelDebug
+	default:
+		loggerOpts.Level = slog.LevelDebug
+	}
+
+	var slogger *slog.Logger
+	if logFormat == "json" {
+		slogger = slog.New(slog.NewJSONHandler(os.Stdout, loggerOpts))
+	} else {
+		slogger = slog.New(slog.NewTextHandler(os.Stdout, loggerOpts))
+	}
+
+	ctrl.SetLogger(logr.FromSlogHandler(slogger.Handler()))
+	slogger.Info("Controller starting (health: :8081, metrics: :8082)...")
 	ctx := ctrl.SetupSignalHandler()
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme.Scheme,
@@ -66,7 +95,7 @@ func main() {
 	configReaderWriter := config.SecretReaderWriter{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-		Logger: &ctrl.Log,
+		Logger: slogger,
 	}
 
 	mcpExtFinderValidator := &controller.MCPGatewayExtensionValidator{

@@ -19,6 +19,7 @@ This package contains the main of the mcp controller
 package main
 
 import (
+	"flag"
 	"log/slog"
 	"os"
 
@@ -43,7 +44,31 @@ func init() {
 }
 
 func main() {
-	slogger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	var loglevel int
+	var logFormat string
+	flag.IntVar(&loglevel, "log-level", int(slog.LevelInfo), "log level: 0=info, 8=error, -4=debug")
+	flag.StringVar(&logFormat, "log-format", "txt", "log format: txt or json")
+	flag.Parse()
+
+	loggerOpts := &slog.HandlerOptions{}
+	switch loglevel {
+	case 0:
+		loggerOpts.Level = slog.LevelInfo
+	case 8:
+		loggerOpts.Level = slog.LevelError
+	case -4:
+		loggerOpts.Level = slog.LevelDebug
+	default:
+		loggerOpts.Level = slog.LevelDebug
+	}
+
+	var slogger *slog.Logger
+	if logFormat == "json" {
+		slogger = slog.New(slog.NewJSONHandler(os.Stdout, loggerOpts))
+	} else {
+		slogger = slog.New(slog.NewTextHandler(os.Stdout, loggerOpts))
+	}
+
 	ctrl.SetLogger(logr.FromSlogHandler(slogger.Handler()))
 	slogger.Info("Controller starting (health: :8081, metrics: :8082)...")
 	ctx := ctrl.SetupSignalHandler()

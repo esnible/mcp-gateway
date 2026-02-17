@@ -587,6 +587,65 @@ logs: ## Tail Istio gateway logs
 
 -include build/*.mk
 
+##@ OpenTelemetry Observability Stack
+
+OTEL_COLLECTOR_HOST ?= otel-collector.observability.svc.cluster.local
+OTEL_COLLECTOR_GRPC ?= rpc://$(OTEL_COLLECTOR_HOST):4317
+OTEL_COLLECTOR_HTTP ?= http://$(OTEL_COLLECTOR_HOST):4318
+ISTIO_TRACING ?= 0
+AUTH_TRACING ?= 0
+
+.PHONY: otel
+otel: ## Deploy OpenTelemetry observability stack. Use ISTIO_TRACING=1, AUTH_TRACING=1.
+	kubectl apply -f examples/otel/namespace.yaml -f examples/otel/tempo.yaml -f examples/otel/loki.yaml -f examples/otel/otel-collector.yaml -f examples/otel/grafana.yaml
+	@kubectl wait --for=condition=Available deployment -n observability --all --timeout=120s
+ifeq ($(ISTIO_TRACING),1)
+	kubectl apply -f examples/otel/istio-telemetry.yaml
+	kubectl patch istio default --type='merge' \
+		-p='{"spec":{"values":{"meshConfig":{"enableTracing":true,"defaultConfig":{"tracing":{}},"extensionProviders":[{"name":"tempo-otlp","opentelemetry":{"port":4317,"service":"$(OTEL_COLLECTOR_HOST)"}}]}}}}'
+	@sleep 5
+endif
+	kubectl set env deployment/mcp-broker-router -n mcp-system \
+		OTEL_EXPORTER_OTLP_ENDPOINT="$(OTEL_COLLECTOR_HTTP)" OTEL_EXPORTER_OTLP_INSECURE="true"
+	@kubectl rollout status deployment/mcp-broker-router -n mcp-system --timeout=120s
+ifeq ($(AUTH_TRACING),1)
+	@if ! kubectl get authorino -n kuadrant-system 2>/dev/null | grep -q authorino; then \
+		$(MAKE) auth-example-setup; \
+	fi
+	@AUTHORINO_NAME=$$(kubectl get authorino -n kuadrant-system -o jsonpath='{.items[0].metadata.name}'); \
+	kubectl patch authorino "$$AUTHORINO_NAME" -n kuadrant-system --type='merge' \
+		-p='{"spec":{"tracing":{"endpoint":"$(OTEL_COLLECTOR_GRPC)","insecure":true}}}'
+	@kubectl rollout status deployment/authorino -n kuadrant-system --timeout=120s
+	kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml
+	kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/main/example/prometheus-operator-crd/monitoring.coreos.com_podmonitors.yaml
+	kubectl patch kuadrant kuadrant -n kuadrant-system --type='merge' \
+		-p='{"spec":{"observability":{"enable":true,"dataPlane":{"defaultLevels":[{"debug":"true"}],"httpHeaderIdentifier":"x-request-id"},"tracing":{"defaultEndpoint":"$(OTEL_COLLECTOR_GRPC)","insecure":true}}}}'
+	kubectl rollout restart deployment/kuadrant-operator-controller-manager -n kuadrant-system
+	@kubectl rollout status deployment/kuadrant-operator-controller-manager -n kuadrant-system --timeout=120s
+	@sleep 30
+	@kubectl get envoyfilter -n gateway-system | grep -q tracing && echo "EnvoyFilter for tracing: OK" || echo "WARNING: tracing EnvoyFilter not found"
+	@kubectl get wasmplugin kuadrant-mcp-gateway -n gateway-system -o jsonpath='{.spec.pluginConfig.services.tracing-service}' 2>/dev/null | grep -q tracing && echo "WasmPlugin tracing-service: OK" || echo "WARNING: tracing-service not found"
+endif
+	@echo "OTEL stack deployed. Run 'make otel-forward' for port-forwards."
+
+.PHONY: otel-delete
+otel-delete: ## Delete OpenTelemetry observability stack
+	-kubectl delete -f examples/otel/istio-telemetry.yaml --ignore-not-found
+	-kubectl patch istio default --type='merge' \
+		-p='{"spec":{"values":{"meshConfig":{"enableTracing":false,"defaultConfig":{"tracing":null},"extensionProviders":null}}}}'
+	-kubectl delete -f examples/otel/grafana.yaml -f examples/otel/otel-collector.yaml -f examples/otel/loki.yaml -f examples/otel/tempo.yaml -f examples/otel/namespace.yaml --ignore-not-found
+
+.PHONY: otel-status
+otel-status: ## Show status of OpenTelemetry observability stack
+	@kubectl get pods -n observability 2>/dev/null || echo "Namespace 'observability' not found. Run 'make otel' to deploy."
+
+.PHONY: otel-forward
+otel-forward: ## Port-forward Grafana (3000)
+	@echo "Grafana: http://localhost:3000"
+	@kubectl port-forward -n observability svc/grafana 3000:3000
+
+##@ Testing
+
 .PHONY: testwithcoverage
 testwithcoverage:
 	go test -race ./... -coverprofile=coverage.out

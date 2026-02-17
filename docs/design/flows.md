@@ -116,7 +116,7 @@ For detailed information on how MCP server registration works, including the MCP
 
 ## Auth
 
-Below are some attempts with Auth in the mix. Still need some refinement of these flows
+Below are some attempts with Auth in the mix.
 
 ## MCP Gateway Request Authentication
 
@@ -154,6 +154,7 @@ sequenceDiagram
         Authorino->>MCPClient: 401 WWW-Authenticate with resource meta-data
         note left of Authorino: WWW-Authenticate: Bearer <br/> resource_metadata=<host>/.well-known/oauth-protected-resource/mcp
         MCPClient->>Gateway: GET /.well-known/oauth-protected-resource/mcp
+        Gateway->>MCPRouter: GET /.well-known/oauth-protected-resource/mcp
         MCPRouter->>Gateway: no routing needed
         Gateway->>MCPBroker: GET /.well-known/oauth-protected-resource/mcp
         MCPBroker->>MCPClient: responds with resource json with configured auth server etc

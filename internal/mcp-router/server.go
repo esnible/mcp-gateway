@@ -53,18 +53,16 @@ func (s *ExtProcServer) Process(stream extProcV3.ExternalProcessor_ProcessServer
 		requestID           string
 		streaming           = false
 		mcpRequest          *MCPRequest
-		span                trace.Span
 		ctx                 = stream.Context()
 	)
+	span := trace.SpanFromContext(ctx)
+	defer func() { span.End() }()
 	for {
 		req, err := stream.Recv()
 
 		if err != nil {
 			s.Logger.ErrorContext(ctx, "[ext_proc] Process: Error receiving request", "error", err)
-			if span != nil {
-				recordError(span, err, 500)
-				span.End()
-			}
+			recordError(span, err, 500)
 			return err
 		}
 		responseBuilder := NewResponse()
@@ -72,10 +70,7 @@ func (s *ExtProcServer) Process(stream extProcV3.ExternalProcessor_ProcessServer
 		case *extProcV3.ProcessingRequest_RequestHeaders:
 			if r.RequestHeaders == nil {
 				err := fmt.Errorf("no request headers present")
-				if span != nil {
-					recordError(span, err, 400)
-					span.End()
-				}
+				recordError(span, err, 400)
 				return err
 			}
 			localRequestHeaders = r.RequestHeaders
@@ -85,7 +80,8 @@ func (s *ExtProcServer) Process(stream extProcV3.ExternalProcessor_ProcessServer
 			path := getSingleValueHeader(localRequestHeaders.Headers, ":path")
 			method := getSingleValueHeader(localRequestHeaders.Headers, ":method")
 
-			ctx, span = tracer().Start(ctx, "mcp-router.process",
+			span.End()
+			ctx, span = tracer().Start(ctx, "mcp-router.process", //nolint:spancheck // ended via defer closure
 				trace.WithAttributes(
 					attribute.String("http.method", method),
 					attribute.String("http.path", path),
@@ -100,8 +96,7 @@ func (s *ExtProcServer) Process(stream extProcV3.ExternalProcessor_ProcessServer
 				if err := stream.Send(response); err != nil {
 					s.Logger.ErrorContext(ctx, fmt.Sprintf("Error sending response: %v", err))
 					recordError(span, err, 500)
-					span.End()
-					return err
+					return err //nolint:spancheck // ended via defer closure
 				}
 			}
 			continue
@@ -119,19 +114,13 @@ func (s *ExtProcServer) Process(stream extProcV3.ExternalProcessor_ProcessServer
 				if localRequestHeaders == nil {
 					s.Logger.DebugContext(ctx, "Body process requested before headers arrived")
 					err := fmt.Errorf("protocol error: no request headers")
-					if span != nil {
-						recordError(span, err, 400)
-						span.End()
-					}
+					recordError(span, err, 400)
 					return err
 				}
 				if mcpRequest == nil {
 					s.Logger.DebugContext(ctx, "Body process did not receive body")
 					err := fmt.Errorf("protocol error: no body")
-					if span != nil {
-						recordError(span, err, 400)
-						span.End()
-					}
+					recordError(span, err, 400)
 					return err
 				}
 			}
@@ -139,9 +128,7 @@ func (s *ExtProcServer) Process(stream extProcV3.ExternalProcessor_ProcessServer
 			if len(r.RequestBody.Body) > 0 {
 				if err := json.Unmarshal(r.RequestBody.Body, &mcpRequest); err != nil {
 					s.Logger.ErrorContext(ctx, fmt.Sprintf("Error unmarshalling request body: %v", err))
-					if span != nil {
-						recordError(span, err, 400)
-					}
+					recordError(span, err, 400)
 					for _, response := range responses {
 						if err := stream.Send(response); err != nil {
 							s.Logger.ErrorContext(ctx, fmt.Sprintf("Error sending response: %v", err))
@@ -151,9 +138,7 @@ func (s *ExtProcServer) Process(stream extProcV3.ExternalProcessor_ProcessServer
 				}
 				if _, err := mcpRequest.Validate(); err != nil {
 					s.Logger.ErrorContext(ctx, "Invalid MCPRequest", "error", err)
-					if span != nil {
-						recordError(span, err, 400)
-					}
+					recordError(span, err, 400)
 					resp := responseBuilder.WithImmediateResponse(400, "invalid mcp request").Build()
 					for _, res := range resp {
 						if err := stream.Send(res); err != nil {
@@ -166,7 +151,7 @@ func (s *ExtProcServer) Process(stream extProcV3.ExternalProcessor_ProcessServer
 			mcpRequest.Headers = localRequestHeaders.Headers
 			mcpRequest.Streaming = streaming
 
-			if span != nil && mcpRequest != nil {
+			if mcpRequest != nil {
 				span.SetAttributes(spanAttributes(mcpRequest)...)
 			}
 
@@ -175,10 +160,7 @@ func (s *ExtProcServer) Process(stream extProcV3.ExternalProcessor_ProcessServer
 				s.Logger.DebugContext(ctx, fmt.Sprintf("Sending MCP body routing instructions to Envoy: %+v", response))
 				if err := stream.Send(response); err != nil {
 					s.Logger.ErrorContext(ctx, fmt.Sprintf("Error sending response: %v", err))
-					if span != nil {
-						recordError(span, err, 500)
-						span.End()
-					}
+					recordError(span, err, 500)
 					return err
 				}
 			}
@@ -187,36 +169,24 @@ func (s *ExtProcServer) Process(stream extProcV3.ExternalProcessor_ProcessServer
 		case *extProcV3.ProcessingRequest_ResponseHeaders:
 			if r.ResponseHeaders == nil || localRequestHeaders == nil {
 				err := fmt.Errorf("no response headers or request headers")
-				if span != nil {
-					recordError(span, err, 400)
-					span.End()
-				}
+				recordError(span, err, 400)
 				return err
 			}
 			s.Logger.DebugContext(ctx, "[ext_proc ] Process: ProcessingRequest_ResponseHeaders", "request id:", requestID)
 
 			statusCode := getSingleValueHeader(r.ResponseHeaders.Headers, ":status")
-			if span != nil {
-				span.SetAttributes(attribute.String("http.status_code", statusCode))
-			}
+			span.SetAttributes(attribute.String("http.status_code", statusCode))
 
 			responses, _ := s.HandleResponseHeaders(ctx, r.ResponseHeaders, localRequestHeaders, mcpRequest)
 			for _, response := range responses {
 				s.Logger.DebugContext(ctx, fmt.Sprintf("Sending response header processing instructions to Envoy: %+v", response))
 				if err := stream.Send(response); err != nil {
 					s.Logger.ErrorContext(ctx, fmt.Sprintf("Error sending response: %v", err))
-					if span != nil {
-						recordError(span, err, 500)
-						span.End()
-					}
+					recordError(span, err, 500)
 					return err
 				}
 			}
-
-			if span != nil {
-				span.End()
-			}
-			continue
+			return nil
 		case *extProcV3.ProcessingRequest_ResponseBody:
 			s.Logger.ErrorContext(ctx, "[EXT-PROC] Unexpected response body processing request received",
 				"size", len(r.ResponseBody.GetBody()),

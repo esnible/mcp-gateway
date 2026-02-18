@@ -363,3 +363,8 @@ traceid
 traceparent
 traceql
 wasmplugin
+LDFLAGS
+ldflags
+tracetest
+Syncer
+spancheck

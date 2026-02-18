@@ -88,6 +88,9 @@ func (mr *MCPRequest) GetSessionID() string {
 
 // Validate validates the mcp request
 func (mr *MCPRequest) Validate() (bool, error) {
+	if mr == nil {
+		return false, errors.Join(ErrInvalidRequest, fmt.Errorf("JSON invalid"))
+	}
 	if mr.JSONRPC != "2.0" {
 		return false, errors.Join(ErrInvalidRequest, fmt.Errorf("json rpc version invalid"))
 	}

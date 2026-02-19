@@ -14,6 +14,9 @@ import (
 	extProcV3 "github.com/envoyproxy/go-control-plane/envoy/service/ext_proc/v3"
 	typev3 "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -167,6 +170,89 @@ func TestProcess(t *testing.T) {
 	}))
 }
 
+func TestProcessSpanEnded(t *testing.T) {
+	exporter := tracetest.NewInMemoryExporter()
+	tp := sdktrace.NewTracerProvider(sdktrace.WithSyncer(exporter))
+	prev := otel.GetTracerProvider()
+	otel.SetTracerProvider(tp)
+	t.Cleanup(func() {
+		otel.SetTracerProvider(prev)
+		_ = tp.Shutdown(context.Background())
+	})
+
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	cache, err := session.NewCache(context.Background())
+	require.NoError(t, err)
+
+	server := &ExtProcServer{
+		Logger:       logger,
+		SessionCache: cache,
+		Broker:       newMockBroker(nil, map[string]string{}),
+		RoutingConfig: &config.MCPServersConfig{
+			Servers: []*config.MCPServer{},
+		},
+	}
+
+	_ = server.Process(makeMockProcessServer(t, []mockProcessServerMessageAndErr{
+		{
+			msg: &extProcV3.ProcessingRequest{
+				Request: &extProcV3.ProcessingRequest_RequestHeaders{
+					RequestHeaders: &extProcV3.HttpHeaders{
+						Headers: &corev3.HeaderMap{
+							Headers: []*corev3.HeaderValue{},
+						},
+					},
+				},
+			},
+			resp: []*extProcV3.ProcessingResponse{
+				{
+					Response: &extProcV3.ProcessingResponse_RequestHeaders{
+						RequestHeaders: &extProcV3.HeadersResponse{
+							Response: &extProcV3.CommonResponse{
+								HeaderMutation: &extProcV3.HeaderMutation{
+									SetHeaders: []*corev3.HeaderValueOption{
+										{Header: &corev3.HeaderValue{Key: ":authority"}},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			msg: &extProcV3.ProcessingRequest{
+				Request: &extProcV3.ProcessingRequest_ResponseHeaders{
+					ResponseHeaders: &extProcV3.HttpHeaders{
+						Headers: &corev3.HeaderMap{
+							Headers: []*corev3.HeaderValue{
+								{Key: ":status", Value: "200"},
+							},
+						},
+					},
+				},
+			},
+			resp: []*extProcV3.ProcessingResponse{
+				{
+					Response: &extProcV3.ProcessingResponse_ResponseHeaders{
+						ResponseHeaders: &extProcV3.HeadersResponse{},
+					},
+				},
+			},
+		},
+	}))
+
+	spans := exporter.GetSpans()
+	found := false
+	for _, s := range spans {
+		if s.Name == "mcp-router.process" {
+			found = true
+			require.True(t, s.EndTime.After(s.StartTime), "span should be ended")
+		}
+	}
+	require.True(t, found, "expected mcp-router.process span to be recorded")
+}
+
 func makeMockProcessServer(t *testing.T, expected []mockProcessServerMessageAndErr) extProcV3.ExternalProcessor_ProcessServer {
 	return &mockProcessServer{
 		t:             t,
@@ -224,6 +310,9 @@ func (m *mockProcessServer) Send(actualResp *extProcV3.ProcessingResponse) error
 		}
 		requireMatchingCommonHeaderMutation(m.t, v.RequestBody.Response, actualRequestBody.RequestBody.Response)
 		requireMatchingBodyMutation(m.t, v.RequestBody.Response, actualRequestBody.RequestBody.Response)
+	case *extProcV3.ProcessingResponse_ResponseHeaders:
+		_, ok := actualResp.Response.(*extProcV3.ProcessingResponse_ResponseHeaders)
+		require.True(m.t, ok, "expected response type to be ResponseHeaders, but it was a %T", actualResp.Response)
 	case *extProcV3.ProcessingResponse_ImmediateResponse:
 		actualImmediateBody, ok := actualResp.Response.(*extProcV3.ProcessingResponse_ImmediateResponse)
 		require.True(m.t, ok, "expected response type to be ImmediateResponse, but it was a %T", actualResp.Response)

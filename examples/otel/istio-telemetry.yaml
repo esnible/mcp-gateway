@@ -1,0 +1,24 @@
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: mesh-default
+  namespace: gateway-system
+spec:
+  tracing:
+  - providers:
+    - name: tempo-otlp
+    randomSamplingPercentage: 100
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: otel-collector-disable-mtls
+  namespace: gateway-system
+spec:
+  host: otel-collector.observability.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: DISABLE
+    connectionPool:
+      http:
+        h2UpgradePolicy: UPGRADE

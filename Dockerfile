@@ -10,7 +10,8 @@ COPY cmd/ cmd/
 COPY internal/ internal/
 COPY api/ api/
 
-RUN CGO_ENABLED=0 GOOS=linux go build -o mcp_gateway cmd/mcp-broker-router/main.go
+ARG LDFLAGS=""
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags "${LDFLAGS}" -o mcp_gateway cmd/mcp-broker-router/main.go
 
 FROM alpine:3.22.1
 

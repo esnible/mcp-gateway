@@ -8,8 +8,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Kuadrant/mcp-gateway/internal/config"
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	eppb "github.com/envoyproxy/go-control-plane/envoy/service/ext_proc/v3"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // ErrInvalidRequest is an error for an invalid request
@@ -156,51 +160,93 @@ func (s *ExtProcServer) HandleRequestHeaders(_ *eppb.HttpHeaders) ([]*eppb.Proce
 
 // RouteMCPRequest handles request bodies for MCP requests.
 func (s *ExtProcServer) RouteMCPRequest(ctx context.Context, mcpReq *MCPRequest) []*eppb.ProcessingResponse {
-	s.Logger.Debug("HandleMCPRequest ", "session id", mcpReq.GetSessionID())
+	ctx, span := tracer().Start(ctx, "mcp-router.route-decision",
+		trace.WithAttributes(
+			attribute.String("mcp.method.name", mcpReq.Method),
+		),
+	)
+	defer span.End()
+
+	s.Logger.DebugContext(ctx, "HandleMCPRequest ", "session id", mcpReq.GetSessionID())
 	switch mcpReq.Method {
 	case methodToolCall:
+		span.SetAttributes(attribute.String("mcp.route", "tool-call"))
 		return s.HandleToolCall(ctx, mcpReq)
 	default:
-		return s.HandleNoneToolCall(mcpReq)
+		span.SetAttributes(attribute.String("mcp.route", "broker"))
+		return s.HandleNoneToolCall(ctx, mcpReq)
 	}
 }
 
 // HandleToolCall will handle an MCP Tool Call
 func (s *ExtProcServer) HandleToolCall(ctx context.Context, mcpReq *MCPRequest) []*eppb.ProcessingResponse {
+	toolName := mcpReq.ToolName()
+
+	ctx, span := tracer().Start(ctx, "mcp-router.tool-call",
+		trace.WithAttributes(
+			attribute.String("gen_ai.tool.name", toolName),
+			attribute.String("mcp.session.id", mcpReq.GetSessionID()),
+		),
+	)
+	defer span.End()
+
 	calculatedResponse := NewResponse()
 	// handle tools call
-	toolName := mcpReq.ToolName()
 	if toolName == "" {
-		s.Logger.Error("[EXT-PROC] HandleRequestBody no tool name set in tools/call")
+		s.Logger.ErrorContext(ctx, "[EXT-PROC] HandleRequestBody no tool name set in tools/call")
+		span.SetStatus(codes.Error, "no tool name set")
+		span.SetAttributes(attribute.String("error.type", "missing_tool_name"))
 		calculatedResponse.WithImmediateResponse(400, "no tool name set")
 		return calculatedResponse.Build()
 	}
 	if mcpReq.GetSessionID() == "" {
-		s.Logger.Info("No mcp-session-id found in headers")
+		s.Logger.InfoContext(ctx, "No mcp-session-id found in headers")
+		span.SetStatus(codes.Error, "no session ID found")
+		span.SetAttributes(attribute.String("error.type", "missing_session"))
 		calculatedResponse.WithImmediateResponse(400, "no session ID found")
 		return calculatedResponse.Build()
 	}
 	// This request wont go through the broker so needs to be validated
 	isInvalidSession, err := s.JWTManager.Validate(mcpReq.GetSessionID())
 	if err != nil {
-		s.Logger.Error("failed to validate session", "session", mcpReq.GetSessionID(), "error ", err)
+		s.Logger.ErrorContext(ctx, "failed to validate session", "session", mcpReq.GetSessionID(), "error ", err)
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "session validation failed")
+		span.SetAttributes(attribute.String("error.type", "session_validation_error"))
 		calculatedResponse.WithImmediateResponse(404, "session no longer valid")
 		return calculatedResponse.Build()
 	}
 	if isInvalidSession {
-		s.Logger.Debug("invalid session ", "session", mcpReq.GetSessionID())
+		s.Logger.DebugContext(ctx, "invalid session ", "session", mcpReq.GetSessionID())
+		span.SetStatus(codes.Error, "invalid session")
+		span.SetAttributes(attribute.String("error.type", "invalid_session"))
 		calculatedResponse.WithImmediateResponse(404, "session no longer valid")
 		return calculatedResponse.Build()
 	}
 
 	// Get tool annotations from broker and set headers
 	headers := NewHeaders()
-	serverInfo, err := s.Broker.GetServerInfo(toolName)
+	var serverInfo *config.MCPServer
+	{
+		_, infoSpan := tracer().Start(ctx, "mcp-router.broker.get-server-info",
+			trace.WithAttributes(
+				attribute.String("gen_ai.tool.name", toolName),
+			),
+		)
+		var infoErr error
+		serverInfo, infoErr = s.Broker.GetServerInfo(toolName)
+		if infoErr != nil {
+			infoSpan.RecordError(infoErr)
+			infoSpan.SetStatus(codes.Error, "tool not found")
+		}
+		infoSpan.End()
+		err = infoErr
+	}
 	if err != nil {
-		// For unknown tool, the spec says to return a JSON RPC error response,
-		// and the error is not an HTTP error, so we return a 200 status code.
-		// See https://modelcontextprotocol.io/specification/2025-06-18/server/tools#error-handling
-		s.Logger.Debug("no server for tool", "toolName", toolName)
+		s.Logger.DebugContext(ctx, "no server for tool", "toolName", toolName)
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "tool not found")
+		span.SetAttributes(attribute.String("error.type", "tool_not_found"))
 		calculatedResponse.WithImmediateJSONRPCResponse(200,
 			[]*corev3.HeaderValueOption{
 				{
@@ -215,6 +261,11 @@ event: message
 data: {"result":{"content":[{"type":"text","text":"MCP error -32602: Tool not found"}],"isError":true},"jsonrpc":"2.0"}`)
 		return calculatedResponse.Build()
 	}
+
+	span.SetAttributes(
+		attribute.String("mcp.server", serverInfo.Name),
+		attribute.String("mcp.server.hostname", serverInfo.Hostname),
+	)
 	if annotations, hasAnnotations := s.Broker.ToolAnnotations(serverInfo.ID(), toolName); hasAnnotations {
 		// build header value (e.g. readOnly=true,destructive=false,openWorld=true)
 		var parts []string
@@ -245,15 +296,33 @@ data: {"result":{"content":[{"type":"text","text":"MCP error -32602: Tool not fo
 	headers.WithMCPServerName(serverInfo.Name)
 
 	// create a new session with backend mcp if one doesn't exist
-	exists, err := s.SessionCache.GetSession(ctx, mcpReq.GetSessionID())
+	var exists map[string]string
+	{
+		_, cacheSpan := tracer().Start(ctx, "mcp-router.session-cache.get",
+			trace.WithAttributes(
+				attribute.String("mcp.session.id", mcpReq.GetSessionID()),
+			),
+		)
+		var cacheErr error
+		exists, cacheErr = s.SessionCache.GetSession(ctx, mcpReq.GetSessionID())
+		if cacheErr != nil {
+			cacheSpan.RecordError(cacheErr)
+			cacheSpan.SetStatus(codes.Error, "session cache get failed")
+		}
+		cacheSpan.End()
+		err = cacheErr
+	}
 	if err != nil {
-		s.Logger.Error("failed to get session from cache", "error", err)
+		s.Logger.ErrorContext(ctx, "failed to get session from cache", "error", err)
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "session cache error")
+		span.SetAttributes(attribute.String("error.type", "session_cache_error"))
 		calculatedResponse.WithImmediateResponse(500, "internal error")
 		return calculatedResponse.Build()
 	}
 	var remoteMCPSeverSession string
 	if id, ok := exists[mcpReq.serverName]; ok {
-		s.Logger.Debug("found session in cache", "session id", mcpReq.GetSessionID(), "for server", serverInfo.Name, "remote session", id)
+		s.Logger.DebugContext(ctx, "found session in cache", "session id", mcpReq.GetSessionID(), "for server", serverInfo.Name, "remote session", id)
 		remoteMCPSeverSession = id
 	}
 	if remoteMCPSeverSession == "" {
@@ -265,7 +334,10 @@ data: {"result":{"content":[{"type":"text","text":"MCP error -32602: Tool not fo
 			} else {
 				calculatedResponse.WithImmediateResponse(500, "internal error")
 			}
-			s.Logger.Error("failed to get remote mcp server session id ", "error ", err)
+			s.Logger.ErrorContext(ctx, "failed to get remote mcp server session id ", "error ", err)
+			span.RecordError(err)
+			span.SetStatus(codes.Error, "session initialization failed")
+			span.SetAttributes(attribute.String("error.type", "session_init_error"))
 			return calculatedResponse.Build()
 		}
 		remoteMCPSeverSession = id
@@ -276,20 +348,26 @@ data: {"result":{"content":[{"type":"text","text":"MCP error -32602: Tool not fo
 	// prepare request body for MCP Backend
 	body, err := mcpReq.ToBytes()
 	if err != nil {
-		s.Logger.Error("failed to marshal body to bytes ", "error ", err)
+		s.Logger.ErrorContext(ctx, "failed to marshal body to bytes ", "error ", err)
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "body marshal failed")
+		span.SetAttributes(attribute.String("error.type", "marshal_error"))
 		calculatedResponse.WithImmediateResponse(500, "internal error")
 		return calculatedResponse.Build()
 	}
 	path, err := serverInfo.Path()
 	if err != nil {
-		s.Logger.Error("failed to parse url for backend ", "error ", err)
+		s.Logger.ErrorContext(ctx, "failed to parse url for backend ", "error ", err)
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "path parse failed")
+		span.SetAttributes(attribute.String("error.type", "path_parse_error"))
 		calculatedResponse.WithImmediateResponse(500, "internal error")
 		return calculatedResponse.Build()
 	}
 	headers.WithPath(path)
 	headers.WithContentLength(len(body))
 	if mcpReq.Streaming {
-		s.Logger.Debug("returning streaming response")
+		s.Logger.DebugContext(ctx, "returning streaming response")
 		calculatedResponse.WithStreamingResponse(headers.Build(), body)
 		return calculatedResponse.Build()
 	}
@@ -301,6 +379,14 @@ data: {"result":{"content":[{"type":"text","text":"MCP error -32602: Tool not fo
 // This connection is kept open for the life of the gateway session.
 // TODO when we receive a 404 from a backend MCP Server we should have a way to close the connection at that point also currently when we receive a 404 we remove the session from cache and will open a new connection. They will all be closed once the gateway session expires or the client sends a delete but it is a source of potential leaks
 func (s *ExtProcServer) initializeMCPSeverSession(ctx context.Context, mcpReq *MCPRequest) (string, error) {
+	ctx, initSpan := tracer().Start(ctx, "mcp-router.session-init",
+		trace.WithAttributes(
+			attribute.String("mcp.server", mcpReq.serverName),
+			attribute.String("mcp.session.id", mcpReq.GetSessionID()),
+		),
+	)
+	defer initSpan.End()
+
 	mcpServerConfig, err := s.RoutingConfig.GetServerConfigByName(mcpReq.serverName)
 	if err != nil {
 		return "", NewRouterErrorf(500, "failed check for server: %w", err)
@@ -310,7 +396,7 @@ func (s *ExtProcServer) initializeMCPSeverSession(ctx context.Context, mcpReq *M
 		return "", NewRouterErrorf(500, "failed to check for existing session: %w", err)
 	}
 	if id, ok := exists[mcpReq.serverName]; ok {
-		s.Logger.Debug("found session in cache", "session id", mcpReq.GetSessionID(), "for server", mcpServerConfig.Name, "remote session", id)
+		s.Logger.DebugContext(ctx, "found session in cache", "session id", mcpReq.GetSessionID(), "for server", mcpServerConfig.Name, "remote session", id)
 		return id, nil
 	}
 	passThroughHeaders := map[string]string{}
@@ -328,45 +414,68 @@ func (s *ExtProcServer) initializeMCPSeverSession(ctx context.Context, mcpReq *M
 		passThroughHeaders["x-mcp-toolname"] = mcpReq.ToolName()
 		passThroughHeaders["user-agent"] = "mcp-router"
 	}
-	s.Logger.Debug("initializing target as no mcp-session-id found for client", "server ", mcpReq.serverName, "with passthrough headers", passThroughHeaders)
+	s.Logger.DebugContext(ctx, "initializing target as no mcp-session-id found for client", "server ", mcpReq.serverName, "with passthrough headers", passThroughHeaders)
 
 	clientHandle, err := s.InitForClient(ctx, s.RoutingConfig.MCPGatewayInternalHostname, s.RoutingConfig.RouterAPIKey, mcpServerConfig, passThroughHeaders)
 	if err != nil {
-		s.Logger.Error("failed to get remote session ", "error", err)
+		s.Logger.ErrorContext(ctx, "failed to get remote session ", "error", err)
+		initSpan.RecordError(err)
+		initSpan.SetStatus(codes.Error, "failed to initialize backend session")
 		return "", NewRouterErrorf(500, "failed to create session for mcp server: %w", err)
 	}
 	var sessionCloser = func() {
-		s.Logger.Debug("gateway session expired closing client", "Session ", mcpReq.GetSessionID())
+		s.Logger.DebugContext(ctx, "gateway session expired closing client", "Session ", mcpReq.GetSessionID())
 		if err := clientHandle.Close(); err != nil {
-			s.Logger.Debug("failed to close client connection", "err", err)
+			s.Logger.DebugContext(ctx, "failed to close client connection", "err", err)
 		}
 		if err := s.SessionCache.DeleteSessions(ctx, mcpReq.GetSessionID()); err != nil {
-			s.Logger.Debug("failed to delete session", "session", mcpReq.GetSessionID(), "err", err)
+			s.Logger.DebugContext(ctx, "failed to delete session", "session", mcpReq.GetSessionID(), "err", err)
 		}
 	}
 	// close connection with remote backend and delete any sessions when our gateway session expires
 	expiresAt, err := s.JWTManager.GetExpiresIn(mcpReq.GetSessionID())
 	if err != nil {
 		// this err would be caused by an invalid token so force a re-initialize
-		s.Logger.Error("failed to get expires in value. Forcing session reset", "err", err)
+		s.Logger.ErrorContext(ctx, "failed to get expires in value. Forcing session reset", "err", err)
 		sessionCloser()
 		return "", NewRouterError(404, fmt.Errorf("invalid session"))
 	}
 	time.AfterFunc(time.Until(expiresAt), sessionCloser)
 	remoteSessionID := clientHandle.GetSessionId()
-	s.Logger.Debug("got remote session id ", "mcp server", mcpServerConfig.Name, "session", remoteSessionID)
-	if _, err := s.SessionCache.AddSession(ctx, mcpReq.GetSessionID(), mcpServerConfig.Name, remoteSessionID); err != nil {
-		s.Logger.Error("failed to add remote session to cache", "error", err)
-		// again if this fails it is likely terminal due to a network connection error
-		return "", NewRouterError(500, fmt.Errorf("internal error"))
+	s.Logger.DebugContext(ctx, "got remote session id ", "mcp server", mcpServerConfig.Name, "session", remoteSessionID)
+	{
+		_, storeSpan := tracer().Start(ctx, "mcp-router.session-cache.store",
+			trace.WithAttributes(
+				attribute.String("mcp.session.id", mcpReq.GetSessionID()),
+				attribute.String("mcp.server", mcpServerConfig.Name),
+			),
+		)
+		_, storeErr := s.SessionCache.AddSession(ctx, mcpReq.GetSessionID(), mcpServerConfig.Name, remoteSessionID)
+		if storeErr != nil {
+			storeSpan.RecordError(storeErr)
+			storeSpan.SetStatus(codes.Error, "session cache store failed")
+		}
+		storeSpan.End()
+		if storeErr != nil {
+			s.Logger.ErrorContext(ctx, "failed to add remote session to cache", "error", storeErr)
+			// again if this fails it is likely terminal due to a network connection error
+			return "", NewRouterError(500, fmt.Errorf("internal error"))
+		}
 	}
 	return remoteSessionID, nil
 
 }
 
 // HandleNoneToolCall handles none tools calls such as initialize. The majority of these requests will be forwarded to the broker
-func (s *ExtProcServer) HandleNoneToolCall(mcpReq *MCPRequest) []*eppb.ProcessingResponse {
-	s.Logger.Debug("HandleMCPBrokerRequest", "HTTP Method", mcpReq.GetSingleHeaderValue(":method"), "mcp method", mcpReq.Method, "session", mcpReq.sessionID)
+func (s *ExtProcServer) HandleNoneToolCall(ctx context.Context, mcpReq *MCPRequest) []*eppb.ProcessingResponse {
+	ctx, span := tracer().Start(ctx, "mcp-router.broker-passthrough",
+		trace.WithAttributes(
+			attribute.String("mcp.method.name", mcpReq.Method),
+		),
+	)
+	defer span.End()
+
+	s.Logger.DebugContext(ctx, "HandleMCPBrokerRequest", "HTTP Method", mcpReq.GetSingleHeaderValue(":method"), "mcp method", mcpReq.Method, "session", mcpReq.sessionID)
 	headers := NewHeaders().WithMCPMethod(mcpReq.Method)
 	response := NewResponse()
 	if mcpReq.isInitializeRequest() {
@@ -375,11 +484,11 @@ func (s *ExtProcServer) HandleNoneToolCall(mcpReq *MCPRequest) []*eppb.Processin
 			// TODO look to use a signed key possible the JWT session key
 			key := mcpReq.GetSingleHeaderValue(RoutingKey)
 			if key != s.RoutingConfig.RouterAPIKey {
-				s.Logger.Warn("unexpected remote initialize request. Key does not match. Rejecting", "sent headers", mcpReq.Headers)
+				s.Logger.WarnContext(ctx, "unexpected remote initialize request. Key does not match. Rejecting", "sent headers", mcpReq.Headers)
 				return response.WithImmediateResponse(400, "bad request").Build()
 			}
 
-			s.Logger.Debug("HandleMCPBrokerRequest initialize request", "target", remoteInitializeTarget, "call", mcpReq.Method)
+			s.Logger.DebugContext(ctx, "HandleMCPBrokerRequest initialize request", "target", remoteInitializeTarget, "call", mcpReq.Method)
 			headers.WithAuthority(remoteInitializeTarget)
 			// ensure we unset the router specific headers so they are not sent to the backend
 			return response.WithRequestBodySetUnsetHeadersResponse(headers.Build(), []string{"mcp-init-host", RoutingKey}).Build()

@@ -82,10 +82,6 @@ func (s *ExtProcServer) Process(stream extProcV3.ExternalProcessor_ProcessServer
 			continue
 
 		case *extProcV3.ProcessingRequest_RequestBody:
-			if mcpRequest == nil {
-				s.Logger.Debug("Body process did not receive body")
-				return fmt.Errorf("protocol error: no body")
-			}
 			// default response
 			responses := responseBuilder.WithDoNothingResponse(streaming).Build()
 			if localRequestHeaders == nil || localRequestHeaders.Headers == nil {
@@ -99,6 +95,10 @@ func (s *ExtProcServer) Process(stream extProcV3.ExternalProcessor_ProcessServer
 				if localRequestHeaders == nil {
 					s.Logger.Debug("Body process requested before headers arrived")
 					return fmt.Errorf("protocol error: no request headers")
+				}
+				if mcpRequest == nil {
+					s.Logger.Debug("Body process did not receive body")
+					return fmt.Errorf("protocol error: no body")
 				}
 			}
 			s.Logger.Debug("[ext_proc ] Process: ProcessingRequest_RequestBody", "request id:", requestID)
@@ -121,6 +121,7 @@ func (s *ExtProcServer) Process(stream extProcV3.ExternalProcessor_ProcessServer
 							return err
 						}
 					}
+					continue
 				}
 			}
 			// override responses with custom handle responses

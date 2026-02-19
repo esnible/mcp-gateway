@@ -309,7 +309,7 @@ func setUpBroker(address string, toolFiltering bool, sessionManager *session.JWT
 
 	// Allow direct connections with MCP Inspector
 	mux.HandleFunc("OPTIONS /mcp", func(w http.ResponseWriter, r *http.Request) {
-		logger.Warn("Handling OPTIONS", "mcp-session-id", r.Header.Get("mcp-session-id"))
+		logger.Debug("Handling OPTIONS", "Mcp-Session-Id", r.Header.Get("Mcp-Session-Id"))
 		w.WriteHeader(http.StatusOK)
 	})
 

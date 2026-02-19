@@ -121,6 +121,7 @@ func (s *ExtProcServer) Process(stream extProcV3.ExternalProcessor_ProcessServer
 							return err
 						}
 					}
+					continue
 				}
 			}
 			// override responses with custom handle responses

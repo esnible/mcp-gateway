@@ -306,6 +306,13 @@ func setUpBroker(address string, toolFiltering bool, sessionManager *session.JWT
 			server.WithSessionIdManager(sessionManager),
 		)
 	}
+
+	// Allow direct connections with MCP Inspector
+	mux.HandleFunc("OPTIONS /mcp", func(w http.ResponseWriter, r *http.Request) {
+		logger.Warn("Handling OPTIONS", "mcp-session-id", r.Header.Get("mcp-session-id"))
+		w.WriteHeader(http.StatusOK)
+	})
+
 	mux.HandleFunc("/status", mcpBroker.HandleStatusRequest)
 	mux.HandleFunc("/status/", mcpBroker.HandleStatusRequest)
 	mux.Handle("/mcp", streamableHTTPServer)

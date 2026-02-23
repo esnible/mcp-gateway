@@ -2,22 +2,22 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "mcp-gateway.fullname" . }}-broker-router
+  name: {{ include "mcp-gateway.fullname" . }}
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "mcp-gateway.labels" . | nindent 4 }}
-    component: broker-router
+    component: mcp-gateway
 spec:
   replicas: 1
   selector:
     matchLabels:
       {{- include "mcp-gateway.selectorLabels" . | nindent 6 }}
-      component: broker-router
+      component: mcp-gateway
   template:
     metadata:
       labels:
         {{- include "mcp-gateway.selectorLabels" . | nindent 8 }}
-        component: broker-router
+        component: mcp-gateway
     spec:
       serviceAccountName: {{ include "mcp-gateway.brokerServiceAccountName" . }}
       volumes:
@@ -26,7 +26,7 @@ spec:
             secretName: mcp-gateway-config
             optional: true
       containers:
-        - name: mcp-broker-router
+        - name: mcp-gateway
           image: {{ include "mcp-gateway.image" . }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command:

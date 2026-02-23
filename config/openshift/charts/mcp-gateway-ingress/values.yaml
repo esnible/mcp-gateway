@@ -3,7 +3,7 @@
 mcpGateway:
   host: ""
   brokerService:
-    name: mcp-gateway-broker
+    name: mcp-gateway
     port: 8080
   namespace: mcp-system
 

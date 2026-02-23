@@ -240,7 +240,7 @@ kubectl logs -n mcp-system deployment/mcp-gateway-controller | grep prefix
 **Solutions**:
 - Ensure `toolPrefix` is set in MCPServerRegistration spec
 - Verify no typos in `toolPrefix` field name
-- Restart broker after MCPServerRegistration changes: `kubectl rollout restart deployment/mcp-gateway-broker-router -n mcp-system`
+- Restart broker after MCPServerRegistration changes: `kubectl rollout restart deployment/mcp-gateway -n mcp-system`
 
 ## External MCP Server Issues
 
@@ -294,7 +294,7 @@ kubectl get mcpsr <name> -n <namespace> -o yaml | grep -A 3 credentialRef
 - Verify secret data key matches `credentialRef.key` in MCPServerRegistration
 - Check credential format (e.g., "Bearer TOKEN" for GitHub)
 - Verify credential has necessary permissions for the external service
-- Check broker logs for credential errors: `kubectl logs -n mcp-system deployment/mcp-gateway-broker-router | grep -i auth`
+- Check broker logs for credential errors: `kubectl logs -n mcp-system deployment/mcp-gateway | grep -i auth`
 
 ## Authentication Issues
 
@@ -307,7 +307,7 @@ kubectl get mcpsr <name> -n <namespace> -o yaml | grep -A 3 credentialRef
 curl http://<mcp-hostname>/.well-known/oauth-protected-resource
 
 # Check broker environment variables
-kubectl get deployment mcp-gateway-broker-router -n mcp-system -o yaml | grep -A 10 env
+kubectl get deployment mcp-gateway -n mcp-system -o yaml | grep -A 10 env
 ```
 
 **Solutions**:
@@ -497,7 +497,7 @@ kubectl logs -n mcp-system -l app=mcp-broker-router | grep -i session
 kubectl set env deployment/mcp-gateway-controller LOG_LEVEL=debug -n mcp-system
 
 # Increase log verbosity for broker (adjust deployment name as needed)
-kubectl set env deployment/mcp-gateway-broker-router LOG_LEVEL=debug -n mcp-system
+kubectl set env deployment/mcp-gateway LOG_LEVEL=debug -n mcp-system
 
 # Check Istio proxy logs (adjust deployment name as needed)
 kubectl logs -n gateway-system deploy/mcp-gateway-istio -c istio-proxy
@@ -525,7 +525,7 @@ kubectl get httproute -A
 ```bash
 # Test broker from within cluster
 kubectl run -it --rm test --image=curlimages/curl --restart=Never -- \
-  curl -v http://mcp-gateway-broker.mcp-system.svc.cluster.local:8080/health
+  curl -v http://mcp-gateway.mcp-system.svc.cluster.local:8080/health
 ```
 
 ## Getting Help

@@ -16,7 +16,7 @@ Set the following environment variables on the `mcp-broker-router` process:
 After installing the MCP Gateway with Helm, set the environment variables on the broker-router deployment:
 
 ```bash
-kubectl set env deployment/<release-name>-mcp-gateway-broker-router -n <namespace> \
+kubectl set env deployment/<release-name> -n <namespace> \
   OTEL_EXPORTER_OTLP_ENDPOINT="http://your-collector:4318" \
   OTEL_EXPORTER_OTLP_INSECURE="true"
 ```

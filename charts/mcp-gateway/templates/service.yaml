@@ -3,16 +3,16 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "mcp-gateway.fullname" . }}-broker
+  name: {{ include "mcp-gateway.fullname" . }}
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "mcp-gateway.labels" . | nindent 4 }}
-    app.kubernetes.io/component: mcp-broker
+    app.kubernetes.io/component: mcp-gateway
 spec:
   type: ClusterIP
   selector:
     {{- include "mcp-gateway.selectorLabels" . | nindent 4 }}
-    component: broker-router
+    component: mcp-gateway
   ports:
     - name: http
       port: 8080
@@ -35,7 +35,7 @@ spec:
   type: ClusterIP
   selector:
     {{- include "mcp-gateway.selectorLabels" . | nindent 4 }}
-    component: broker-router
+    component: mcp-gateway
   ports:
     - name: http
       port: 8181

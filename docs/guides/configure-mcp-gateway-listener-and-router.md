@@ -75,14 +75,14 @@ spec:
               - name: Access-Control-Allow-Credentials
                 value: "true"
       backendRefs:
-        - name: mcp-gateway-broker     # MCP Gateway broker service name
+        - name: mcp-gateway     # MCP Gateway broker service name
           port: 8080
     - matches:
         - path:
             type: PathPrefix
             value: /.well-known/oauth-protected-resource
       backendRefs:
-        - name: mcp-gateway-broker
+        - name: mcp-gateway
           port: 8080
 EOF
 ```
@@ -138,7 +138,7 @@ spec:
               response_trailer_mode: SKIP
             grpc_service:
               envoy_grpc:
-                cluster_name: outbound|50051||mcp-gateway-broker.mcp-system.svc.cluster.local
+                cluster_name: outbound|50051||mcp-gateway.mcp-system.svc.cluster.local
 EOF
 ```
 

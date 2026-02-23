@@ -1,5 +1,17 @@
 ## Notifications
 
+### Implementation Status
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| `notifications/tools/list_changed` (upstream detection) | Implemented | MCPManager detects and re-fetches tools |
+| `notifications/tools/list_changed` (client forwarding) | Implemented | Handled by mcp-go library; E2E tested |
+| Progress updates (streamed in tool call POST) | Implemented | Handled by mcp-go library; covered by `tools-call-with-progress` conformance test |
+| Elicitation request/response routing | Not implemented | Requires request ID mapping infrastructure |
+| `notifications/resources/list_changed` | Not applicable | Gateway does not federate resources |
+| `notifications/prompts/list_changed` | Not applicable | Gateway does not federate prompts |
+| `notifications/roots/list_changed` | Not applicable | Gateway does not federate roots |
+
 ### Problem
 
 The MCP protocol supports real-time notifications that enable servers to inform clients about changes without being explicitly requested. These notifications are crucial for maintaining synchronization between clients and servers when:
@@ -19,7 +31,7 @@ The gateway uses a **lazy initialization** approach where backend sessions to MC
 
 ### Non-Goals
 
-At this time, the MCP Gateway does **not** support client-specific notifications that require out-of-band communication over the GET `/mcp` notification channel. Only state change events that are logically 'broadcast' (safe to send to all connected clients) are supported over the GET notification channel.
+At this time, the MCP Gateway does **not** support elicitation requests that require out-of-band communication over the GET `/mcp` notification channel. Only state change events that are logically 'broadcast' (safe to send to all connected clients) are supported over the GET notification channel.
 
 This is a technical limitation due to the complexity of implementing a fan-out approach where the broker would need to maintain separate GET connections to each backend MCP server for each client, particularly when those connections require the client's authentication credentials. The challenges include:
 
@@ -27,7 +39,7 @@ This is a technical limitation due to the complexity of implementing a fan-out a
 - Connection lifecycle management and reconnection logic for multiple fan-out connections
 - Resource overhead of maintaining many concurrent connections
 
-Client-specific events (progress updates and elicitations) are instead handled as streamed events within tool call POST responses, which naturally align with the client's authentication context and tool call lifecycle.
+Progress updates are streamed as events within tool call POST responses by the mcp-go library, which naturally aligns with the client's authentication context and tool call lifecycle. Elicitation support is planned but not yet implemented.
 
 ### Solution
 
@@ -35,7 +47,7 @@ The MCP Gateway supports two distinct types of notification mechanisms:
 
 1. **State Change Events**: Notifications that are safe to send to all connected clients (e.g., `notifications/tools/list_changed`, `notifications/resources/list_changed`, `notifications/prompts/list_changed`, `notifications/roots/list_changed`). These are received via persistent Server-Sent Events (SSE) connections the broker maintains to all backend MCP servers using the broker's configured authentication credentials.
 
-2. **Client-Specific Events**: Events related to specific client sessions that are streamed as part of tool call responses:
+2. **Client-Specific Events**: Events related to specific client sessions that are streamed as part of tool call POST responses:
    - Progress updates for long-running tool calls
    - Elicitation requests that require client interaction
 
@@ -46,6 +58,8 @@ The broker maintains a Server-Sent Events (SSE) connection with each connected c
 ### Notification Architecture
 
 #### State Change Events
+
+> **Implementation Note**: The `notifications/tools/list_changed` event is fully implemented. The MCPManager detects this notification from upstream servers and re-fetches the tool list. The mcp-go library handles forwarding state change notifications to all connected clients via their GET SSE connections. Other state change events (`resources/list_changed`, `prompts/list_changed`, `roots/list_changed`) are not applicable as the gateway currently only federates tools.
 
 State change events are notifications that are safe and appropriate to send to all connected clients. The gateway supports the following state change events:
 
@@ -111,6 +125,8 @@ The broker uses its own authentication credentials (configured at startup) rathe
 
 #### Client-Specific Events
 
+> **Implementation Note**: Progress updates work without special gateway implementation — the mcp-go library streams progress events as part of the tool call POST response. Elicitation support is not yet implemented and requires the request ID mapping infrastructure described below.
+
 Client-specific events are related to a particular client's tool execution and are delivered as streamed events within the tool call POST response, not via separate GET notification channels. The gateway supports two types of client-specific events:
 
 1. **Progress Updates**: Progress notifications for long-running tool calls
@@ -121,6 +137,8 @@ Client-specific events are related to a particular client's tool execution and a
 > - Subscribe requests (`resources/subscribe` and `notifications/resources/updated`) - See [MCP SubscribeRequest schema](https://modelcontextprotocol.io/specification/2025-06-18/schema#subscriberequest)
 
 **How Progress Updates Work:**
+
+> **Implementation Note**: This is handled transparently by the mcp-go library. The gateway forwards the tool call POST request to the backend, and the library streams progress events back to the client as part of the same HTTP response. No special gateway logic is required.
 
 Progress updates are streamed events sent by the backend MCP server as part of the `tools/call` POST response. The client indicates they want progress updates by including a `progressToken` field in the tool call request with an arbitrary value. The backend server uses this token to associate progress events with the specific tool call. See the [MCP Progress specification](https://modelcontextprotocol.io/specification/2025-06-18/basic/utilities/progress#progress) for more details.
 
@@ -146,6 +164,8 @@ sequenceDiagram
 ```
 
 **How Elicitations Work:**
+
+> **Implementation Note**: Elicitation support is **not yet implemented**. The design below describes the planned approach.
 
 Elicitations allow backend MCP servers to request user input during tool execution. When an `elicitation/create` event is sent, the tool call on the server halts, waiting for the client's response. The elicitation message contains a unique request ID that the client must use when responding. See the [MCP Elicitation specification](https://modelcontextprotocol.io/specification/2025-06-18/client/elicitation#elicitation) for more details.
 

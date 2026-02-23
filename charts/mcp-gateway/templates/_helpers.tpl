@@ -57,7 +57,7 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 Create the name of the broker service account to use
 */}}
 {{- define "mcp-gateway.brokerServiceAccountName" -}}
-{{ include "mcp-gateway.fullname" . }}-broker-router
+{{ include "mcp-gateway.fullname" . }}-mcp-gateway
 {{- end }}
 
 {{/*

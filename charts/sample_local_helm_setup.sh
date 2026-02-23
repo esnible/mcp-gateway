@@ -99,7 +99,7 @@ fi
 kubectl apply -f https://raw.githubusercontent.com/$GITHUB_ORG/mcp-gateway/$BRANCH/config/samples/mcpserverregistration-test-servers-base.yaml
 
 echo "Waiting for MCP Gateway pods to be ready..."
-kubectl wait --for=condition=available --timeout=300s deployment/mcp-gateway-broker-router -n mcp-system
+kubectl wait --for=condition=available --timeout=300s deployment/mcp-gateway-mcp-gateway -n mcp-system
 kubectl wait --for=condition=available --timeout=300s deployment/mcp-gateway-controller -n mcp-system
 
 echo "Waiting for Istio gateway pod to be ready..."

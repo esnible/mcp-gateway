@@ -78,11 +78,11 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: {{ include "mcp-gateway.fullname" . }}-broker-router
+  name: {{ include "mcp-gateway.fullname" . }}-mcp-gateway
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "mcp-gateway.labels" . | nindent 4 }}
-    component: broker-router
+    component: mcp-gateway
 rules:
   - apiGroups: [""]
     resources: ["configmaps"]
@@ -92,15 +92,15 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: {{ include "mcp-gateway.fullname" . }}-broker-router
+  name: {{ include "mcp-gateway.fullname" . }}-mcp-gateway
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "mcp-gateway.labels" . | nindent 4 }}
-    component: broker-router
+    component: mcp-gateway
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: {{ include "mcp-gateway.fullname" . }}-broker-router
+  name: {{ include "mcp-gateway.fullname" . }}-mcp-gateway
 subjects:
   - kind: ServiceAccount
     name: {{ include "mcp-gateway.brokerServiceAccountName" . }}

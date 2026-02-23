@@ -83,7 +83,7 @@
 
 7. View logs for troubleshooting:
   # Broker/Router logs
-  kubectl logs -n {{ .Release.Namespace }} deployment/{{ include "mcp-gateway.fullname" . }}-mcp-gateway
+  kubectl logs -n {{ .Release.Namespace }} deployment/{{ include "mcp-gateway.fullname" . }}-broker-router
   
   # Controller logs  
   kubectl logs -n {{ .Release.Namespace }} deployment/{{ include "mcp-gateway.fullname" . }}-controller

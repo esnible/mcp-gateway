@@ -1,0 +1,44 @@
+name: Helm Install Test
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  helm-install-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Install tools
+        run: make tools
+
+      - name: Run helm install test
+        run: make test-helm-install
+
+      - name: Collect debug info on failure
+        if: failure()
+        run: |
+          echo "=== Helm releases ==="
+          bin/helm list -A 2>/dev/null || true
+          echo "=== Pods ==="
+          kubectl get pods -A 2>/dev/null || true
+          echo "=== Events ==="
+          kubectl get events -A --sort-by='.lastTimestamp' 2>/dev/null | tail -50 || true
+          echo "=== Broker logs ==="
+          kubectl logs -n mcp-system deployment/mcp-gateway-mcp-gateway --tail=100 2>/dev/null || true
+          echo "=== Controller logs ==="
+          kubectl logs -n mcp-system deployment/mcp-gateway-controller --tail=100 2>/dev/null || true

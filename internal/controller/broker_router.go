@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"strings"
+	"time"
 
 	mcpv1alpha1 "github.com/Kuadrant/mcp-gateway/api/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -60,6 +61,10 @@ func (r *MCPGatewayExtensionReconciler) buildBrokerRouterDeployment(mcpExt *mcpv
 		pollInterval = r.BrokerPollInterval
 	}
 	if pollInterval != "" {
+		// the flag expects seconds as a plain number; parse duration strings like "60s" or "5m"
+		if d, err := time.ParseDuration(pollInterval); err == nil {
+			pollInterval = fmt.Sprintf("%d", int64(d.Seconds()))
+		}
 		command = append(command, "--mcp-check-interval="+pollInterval)
 	}
 	command = append(command, "--mcp-gateway-public-host="+mcpExt.PublicHost())

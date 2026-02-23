@@ -22,6 +22,6 @@ spec:
         
         # Test broker health endpoint
         echo "Checking broker health endpoint..."
-        curl -f http://{{ include "mcp-gateway.fullname" . }}-broker.{{ .Release.Namespace }}.svc.cluster.local:8080/healthz
+        curl -f http://{{ include "mcp-gateway.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:8080/healthz
         
         echo "All tests passed!"

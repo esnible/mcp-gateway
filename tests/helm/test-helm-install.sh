@@ -113,7 +113,7 @@ kubectl wait --for=condition=Ready mcpgatewayextension/mcp-gateway -n "$NAMESPAC
 
 # 10. verify deployments are available
 info "waiting for mcp-gateway deployment"
-kubectl wait --for=condition=Available deployment/mcp-gateway-mcp-gateway -n "$NAMESPACE" --timeout="${TIMEOUT}" \
+kubectl wait --for=condition=Available deployment/mcp-gateway -n "$NAMESPACE" --timeout="${TIMEOUT}" \
     || fail "mcp-gateway deployment not available"
 
 info "waiting for controller deployment"

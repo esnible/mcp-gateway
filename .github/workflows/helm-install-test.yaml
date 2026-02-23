@@ -39,6 +39,6 @@ jobs:
           echo "=== Events ==="
           kubectl get events -A --sort-by='.lastTimestamp' 2>/dev/null | tail -50 || true
           echo "=== Broker logs ==="
-          kubectl logs -n mcp-system deployment/mcp-gateway-mcp-gateway --tail=100 2>/dev/null || true
+          kubectl logs -n mcp-system deployment/mcp-gateway --tail=100 2>/dev/null || true
           echo "=== Controller logs ==="
           kubectl logs -n mcp-system deployment/mcp-gateway-controller --tail=100 2>/dev/null || true

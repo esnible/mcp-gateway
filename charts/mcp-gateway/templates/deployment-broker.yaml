@@ -2,7 +2,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "mcp-gateway.fullname" . }}-mcp-gateway
+  name: {{ include "mcp-gateway.fullname" . }}
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "mcp-gateway.labels" . | nindent 4 }}

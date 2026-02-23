@@ -1,13 +1,11 @@
 1. Check the status of your deployment:
   kubectl get pods -n {{ .Release.Namespace }} -l "app.kubernetes.io/instance={{ .Release.Name }}"
 
-{{- if .Values.envoyFilter.create }}
-2. Verify EnvoyFilter is installed:
-  kubectl get envoyfilter mcp-ext-proc -n {{ .Values.envoyFilter.namespace }}
-{{- end }}
+2. Verify MCPGatewayExtension is ready:
+  kubectl get mcpgatewayextension -n {{ .Release.Namespace }}
 
-3. Configure your Gateway with an MCP listener:
-  Add this listener to your Gateway resource:
+3. Once the MCPGatewayExtension is ready, verify the broker-router deployment:
+  kubectl get deployment mcp-gateway -n {{ .Release.Namespace }}
 
   spec:
     listeners:
@@ -62,6 +60,8 @@
           - name: {{ include "mcp-gateway.fullname" . }}
             port: 8080
   EOF
+4. Verify EnvoyFilter was created (in the Gateway namespace):
+  kubectl get envoyfilter -n {{ .Values.mcpGatewayExtension.gatewayRef.namespace }} -l app.kubernetes.io/managed-by=mcp-gateway-controller
 
 5. Connect MCP servers by creating MCPServerRegistration resources:
   kubectl apply -f - <<EOF
@@ -78,7 +78,7 @@
       name: "my-server-route"
   EOF
 
-6. Access your MCP Gateway at: http://mcp.127-0-0-1.sslip.io:8080/mcp
+6. Access your MCP Gateway at: http://{{ .Values.gateway.publicHost }}/mcp
    (Adjust hostname/port based on your Gateway configuration)
 
 7. View logs for troubleshooting:

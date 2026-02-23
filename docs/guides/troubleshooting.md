@@ -107,23 +107,26 @@ kubectl get httproute <route-name> -n <namespace> -o yaml | grep -A 5 parentRefs
 
 **Symptom**: MCP requests fail or bypass the router
 
+The EnvoyFilter is automatically created by the MCP Gateway controller when the MCPGatewayExtension is ready. It is created in the **Gateway's namespace** (not istio-system).
+
 ```bash
-# Check EnvoyFilter exists
-kubectl get envoyfilter -n istio-system
+# Check EnvoyFilter exists (in Gateway namespace)
+kubectl get envoyfilter -n <gateway-namespace> -l app.kubernetes.io/managed-by=mcp-gateway-controller
 
 # Verify EnvoyFilter configuration
-kubectl describe envoyfilter mcp-ext-proc -n istio-system
+kubectl describe envoyfilter -n <gateway-namespace> -l app.kubernetes.io/managed-by=mcp-gateway-controller
 
 # Check Istio gateway pod configuration
-kubectl exec -n gateway-system deploy/mcp-gateway-istio -- curl localhost:15000/config_dump | grep ext_proc
+kubectl exec -n <gateway-namespace> deploy/<gateway-name>-istio -- curl localhost:15000/config_dump | grep ext_proc
 ```
 
 **Solutions**:
-- Ensure EnvoyFilter is in `istio-system` namespace
-- Verify `workloadSelector` matches Istio gateway labels: `kubectl get pods -n gateway-system --show-labels`
+- Verify MCPGatewayExtension is Ready: `kubectl get mcpgatewayextension -A`
+- Check controller logs for EnvoyFilter creation errors: `kubectl logs -n mcp-system deployment/mcp-gateway-controller`
+- Ensure the Gateway exists and is in the expected namespace
+- Verify ReferenceGrant exists if MCPGatewayExtension is in a different namespace than the Gateway
 - Check port number matches Gateway listener port (default: 8080)
-- Verify broker service name and namespace in `grpc_service` configuration
-- Restart Istio gateway to force config reload: `kubectl rollout restart deployment/mcp-gateway-istio -n gateway-system`
+- Restart Istio gateway to force config reload: `kubectl rollout restart deployment/<gateway-name>-istio -n <gateway-namespace>`
 
 ## MCPGatewayExtension Issues
 
@@ -192,7 +195,7 @@ kubectl describe mcpserver <server-name> -n <namespace>
 kubectl logs -n mcp-system -l app=mcp-controller | grep <server-name>
 
 # Check broker logs
-kubectl logs -n mcp-system -l app=mcp-broker-router | grep "Discovered tools"
+kubectl logs -n mcp-system -l app=mcp-gateway | grep "Discovered tools"
 ```
 
 **Solutions**:
@@ -216,7 +219,7 @@ kubectl run -it --rm debug --image=nicolaka/netshoot --restart=Never -- \
   -d '{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}'
 
 # Check broker router logs for errors
-kubectl logs -n mcp-system -l app=mcp-broker-router
+kubectl logs -n mcp-system -l app=mcp-gateway
 ```
 
 **Solutions**:
@@ -290,7 +293,7 @@ kubectl get mcpsr <name> -n <namespace> -o yaml | grep -A 3 credentialRef
 ```
 
 **Solutions**:
-- Ensure secret has label `mcp.kagenti.com/credential: "true"`
+- Ensure secret has label `mcp.kuadrant.io/credential: "true"`
 - Verify secret data key matches `credentialRef.key` in MCPServerRegistration
 - Check credential format (e.g., "Bearer TOKEN" for GitHub)
 - Verify credential has necessary permissions for the external service
@@ -479,7 +482,7 @@ curl -D - -X POST http://<mcp-hostname>/mcp \
 
 ```bash
 # Check broker session storage
-kubectl logs -n mcp-system -l app=mcp-broker-router | grep -i session
+kubectl logs -n mcp-system -l app=mcp-gateway | grep -i session
 ```
 
 **Solutions**:
@@ -535,7 +538,7 @@ If you continue to experience issues:
 1. Collect logs from all components:
    ```bash
    kubectl logs -n mcp-system -l app=mcp-controller > controller.log
-   kubectl logs -n mcp-system -l app=mcp-broker-router > broker.log
+   kubectl logs -n mcp-system -l app=mcp-gateway > broker.log
    kubectl get mcpsr -A -o yaml > mcpservers.yaml
    kubectl get httproute -A -o yaml > httproutes.yaml
    kubectl get gateway -A -o yaml > gateways.yaml

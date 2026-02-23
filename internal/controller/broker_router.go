@@ -168,11 +168,13 @@ func (r *MCPGatewayExtensionReconciler) buildBrokerRouterService(mcpExt *mcpv1al
 					Name:       "http",
 					Port:       brokerHTTPPort,
 					TargetPort: intstr.FromInt(brokerHTTPPort),
+					Protocol:   corev1.ProtocolTCP,
 				},
 				{
 					Name:       "grpc",
 					Port:       brokerGRPCPort,
 					TargetPort: intstr.FromInt(brokerGRPCPort),
+					Protocol:   corev1.ProtocolTCP,
 				},
 			},
 		},

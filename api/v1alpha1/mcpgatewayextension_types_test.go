@@ -121,9 +121,9 @@ func TestMCPGatewayExtension_PollInterval(t *testing.T) {
 		{
 			name: "annotation present returns value",
 			annotations: map[string]string{
-				AnnotationPollInterval: "30s",
+				AnnotationPollInterval: "30",
 			},
-			want: "30s",
+			want: "30",
 		},
 	}
 

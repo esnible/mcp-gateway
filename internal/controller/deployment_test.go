@@ -459,15 +459,15 @@ func TestBuildBrokerRouterDeployment_PollInterval(t *testing.T) {
 	}{
 		{
 			name:               "poll interval from annotation",
-			annotations:        map[string]string{mcpv1alpha1.AnnotationPollInterval: "30s"},
+			annotations:        map[string]string{mcpv1alpha1.AnnotationPollInterval: "30"},
 			reconcilerInterval: "",
-			wantFlag:           "--mcp-check-interval=30s",
+			wantFlag:           "--mcp-check-interval=30",
 		},
 		{
 			name:               "poll interval from reconciler when no annotation",
 			annotations:        nil,
 			reconcilerInterval: "60s",
-			wantFlag:           "--mcp-check-interval=60s",
+			wantFlag:           "--mcp-check-interval=60",
 		},
 		{
 			name:               "no poll interval flag when both empty",
@@ -477,9 +477,9 @@ func TestBuildBrokerRouterDeployment_PollInterval(t *testing.T) {
 		},
 		{
 			name:               "annotation takes precedence over reconciler",
-			annotations:        map[string]string{mcpv1alpha1.AnnotationPollInterval: "15s"},
+			annotations:        map[string]string{mcpv1alpha1.AnnotationPollInterval: "15"},
 			reconcilerInterval: "60s",
-			wantFlag:           "--mcp-check-interval=15s",
+			wantFlag:           "--mcp-check-interval=15",
 		},
 	}
 

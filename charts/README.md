@@ -56,7 +56,7 @@ The chart uses sensible defaults and requires minimal configuration. The configu
 | `imageController.repository` | Controller image repository | `ghcr.io/kuadrant/mcp-controller` |
 | `imageController.tag` | Controller image tag | Chart appVersion |
 | `controller.enabled` | Enable controller deployment | `true` |
-| `broker.pollInterval` | How often broker pings upstream MCP servers | `60s` |
+| `broker.pollInterval` | How often broker pings upstream MCP servers | `60` |
 | `gateway.publicHost` | Public hostname for MCP Gateway | `mcp.127-0-0-1.sslip.io` |
 | `gateway.create` | Create a Gateway resource | `false` |
 | `gateway.name` | Name of the Gateway | `mcp-gateway` |

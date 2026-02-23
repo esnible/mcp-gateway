@@ -95,9 +95,6 @@ info "running helm install"
     --set gateway.namespace=gateway-system \
     --set broker.create=true \
     --set controller.enabled=true \
-    --set envoyFilter.create=true \
-    --set envoyFilter.namespace=istio-system \
-    --set envoyFilter.name=mcp-gateway \
     --set httpRoute.create=true \
     --set gateway.nodePort.create=true \
     --set gateway.publicHost=mcp.127-0-0-1.sslip.io \

@@ -48,10 +48,23 @@ else
     echo "Warning: $SAMPLE_SCRIPT not found"
 fi
 
+# Update docs/guides/quick-start.md release branch reference
+QUICK_START="$REPO_ROOT/docs/guides/quick-start.md"
+if [ -f "$QUICK_START" ]; then
+    # extract major.minor.patch (strip any pre-release suffix) for branch name
+    BRANCH_VERSION=$(echo "$VERSION" | sed -E 's/-.*//')
+    sed -i.bak -E "s/MCP_GATEWAY_BRANCH=release-[0-9]+\.[0-9]+\.[0-9]+/MCP_GATEWAY_BRANCH=release-$BRANCH_VERSION/" "$QUICK_START"
+    rm -f "$QUICK_START.bak"
+    echo "Updated: $QUICK_START"
+else
+    echo "Warning: $QUICK_START not found"
+fi
+
 echo "Done. Version set to $VERSION"
 echo ""
 echo "Files updated:"
 echo "  - config/openshift/deploy_openshift.sh"
 echo "  - charts/sample_local_helm_setup.sh"
+echo "  - docs/guides/quick-start.md"
 echo ""
 echo "Review changes with: git diff"

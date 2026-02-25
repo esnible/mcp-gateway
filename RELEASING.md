@@ -53,6 +53,22 @@ docker pull ghcr.io/kuadrant/mcp-controller:vX.Y.Z
 helm show chart oci://ghcr.io/kuadrant/charts/mcp-gateway --version X.Y.Z
 ```
 
+## Post-Release: Bump Version on Main
+
+After the release is published, update version references on `main` so they point to the new release:
+
+```bash
+git checkout main
+git pull
+git checkout -b bump-version-X.Y.Z
+./scripts/set-release-version.sh X.Y.Z
+git add config/openshift/deploy_openshift.sh charts/sample_local_helm_setup.sh docs/guides/quick-start.md
+git commit -s -m "Update version to X.Y.Z"
+git push -u origin bump-version-X.Y.Z
+```
+
+Open a PR targeting `main` with this change. This ensures documentation and scripts on `main` reference the latest release.
+
 ## Backporting Fixes to Release Branches
 
 When a bug is discovered after a release branch has been cut:
